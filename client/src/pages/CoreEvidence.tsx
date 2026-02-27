@@ -6,6 +6,50 @@ import { CORE_EVIDENCE_PROMPTS, DIMENSIONS } from "@shared/questionBank";
 import { trpc } from "@/lib/trpc";
 import { ArrowLeft, ArrowRight, Save, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
+import { EvidenceExample } from "@/components/EvidenceExample";
+import { ArcTeaches, type ArcTeachesContent } from "@/components/ArcTeaches";
+
+// Microintervenção para etapa de evidências
+const EVIDENCE_TEACH: ArcTeachesContent = {
+  why: "Evidências transformam autopercepção em dado verificado. Qualquer pessoa pode dizer que é um bom comunicador — poucos conseguem descrever uma situação concreta onde isso foi testado. Estamos calibrando suas respostas do questionário com exemplos reais.",
+  trap: "Escrever frases genéricas como 'sempre ajudo meu time' ou 'sou muito dedicado'. Isso não é evidência — é opinião. Evidência tem contexto, ação e resultado.",
+  howTo: [
+    "Use a estrutura Situação → Ação → Impacto: o que aconteceu, o que você fez especificamente e o que mudou.",
+    "Seja específico: 'reduzimos o prazo em 3 dias' é melhor do que 'melhoramos o processo'.",
+    "Não precisa ser um grande feito — uma situação cotidiana bem descrita vale mais do que um projeto heroico vago.",
+  ],
+};
+
+const MIN_CHARS = 80;
+
+// Exemplos por dimensão (situação → ação → impacto)
+const DIMENSION_EXAMPLES: Record<string, { situation: string; action: string; impact: string }> = {
+  self_management: {
+    situation: "Estava liderando um projeto com prazo apertado e percebi que minha ansiedade estava afetando a qualidade das minhas decisões.",
+    action: "Pausei, identifiquei que estava reagindo emocionalmente, conversei com o time sobre o que era realmente urgente vs. importante, e redistribuí as tarefas.",
+    impact: "Entregamos no prazo com menos retrabalho e o time relatou que se sentiu mais confiante nas decisões tomadas.",
+  },
+  learning_agility: {
+    situation: "Fui designado para liderar uma área técnica que eu nunca tinha trabalhado antes — análise de dados com Python.",
+    action: "Mapeei as lacunas de conhecimento, busquei um mentor interno, fiz um curso intensivo em 2 semanas e apliquei os aprendizados em um projeto piloto real.",
+    impact: "Em 45 dias consegui entregar a primeira análise funcional e documentei o processo para o restante do time.",
+  },
+  collaboration: {
+    situation: "Dois membros do time tinham visões opostas sobre a arquitetura de um sistema, o que estava travando o projeto.",
+    action: "Facilitei uma sessão estruturada onde cada um apresentou os prós e contras da sua proposta, identifiquei os pontos de convergência e propus uma solução híbrida.",
+    impact: "O time chegou a um consenso em 2 horas, o projeto desbloqueou e a solução final foi adotada como padrão para outros projetos.",
+  },
+  communication: {
+    situation: "Precisei apresentar um relatório técnico complexo para a diretoria, que não tinha background técnico.",
+    action: "Reestruturei a apresentação usando analogias do dia a dia, foquei nos impactos de negócio em vez de detalhes técnicos e preparei um resumo executivo de 1 página.",
+    impact: "A diretoria aprovou o investimento solicitado e o diretor financeiro pediu que eu replicasse o formato para outras apresentações.",
+  },
+  innovation: {
+    situation: "O processo de onboarding de novos clientes levava 3 semanas e gerava muitas reclamações.",
+    action: "Mapeei os gargalos, propus automatizar as etapas repetitivas com uma ferramenta de no-code e testei com 5 clientes antes de escalar.",
+    impact: "Reduzimos o onboarding para 5 dias, a satisfação dos clientes aumentou 40% e liberamos 8h/semana da equipe de suporte.",
+  },
+};
 
 interface CoreEvidenceProps {
   onNext: () => void;
@@ -37,7 +81,7 @@ export default function CoreEvidence({ onNext, onPrev }: CoreEvidenceProps) {
   );
 
   const allAnswered = dimensionPrompts.every(
-    (p) => answers[p.id] && answers[p.id].trim().length >= 10
+    (p) => answers[p.id] && answers[p.id].trim().length >= MIN_CHARS
   );
 
   const handleAnswer = (promptId: string, text: string) => {
@@ -83,6 +127,8 @@ export default function CoreEvidence({ onNext, onPrev }: CoreEvidenceProps) {
     );
   }
 
+  const example = DIMENSION_EXAMPLES[currentDimension.key];
+
   return (
     <div className="space-y-6">
       <Card className="border-0 shadow-sm">
@@ -94,7 +140,7 @@ export default function CoreEvidence({ onNext, onPrev }: CoreEvidenceProps) {
                 {currentDimension.label} — Evidências
               </CardTitle>
               <CardDescription>
-                Dimensão {dimensionIdx + 1} de {DIMENSIONS.length} — Descreva situações reais
+                Dimensão {dimensionIdx + 1} de {DIMENSIONS.length} — Descreva situações reais com contexto, ação e impacto
               </CardDescription>
             </div>
           </div>
@@ -114,26 +160,60 @@ export default function CoreEvidence({ onNext, onPrev }: CoreEvidenceProps) {
           </div>
         </CardHeader>
         <CardContent className="space-y-5">
-          {dimensionPrompts.map((prompt, i) => (
-            <div key={prompt.id} className="space-y-2">
-              <label className="text-sm font-medium text-foreground leading-relaxed block">
-                <span className="text-muted-foreground mr-2">{i + 1}.</span>
-                {prompt.text}
-              </label>
-              <Textarea
-                value={answers[prompt.id] || ""}
-                onChange={(e) => handleAnswer(prompt.id, e.target.value)}
-                placeholder="Descreva com detalhes..."
-                rows={4}
-                className="resize-none"
-              />
-              <p className="text-xs text-muted-foreground">
-                {(answers[prompt.id] || "").length < 10
-                  ? `Mínimo 10 caracteres (${(answers[prompt.id] || "").length}/10)`
-                  : `${(answers[prompt.id] || "").length} caracteres`}
-              </p>
-            </div>
-          ))}
+          {/* Microintervenção ARC ensina a pensar */}
+          <ArcTeaches content={EVIDENCE_TEACH} />
+
+          {/* Exemplo colapsável */}
+          {example && (
+            <EvidenceExample
+              dimensionLabel={currentDimension.label}
+              example={example}
+            />
+          )}
+
+          {dimensionPrompts.map((prompt, i) => {
+            const charCount = (answers[prompt.id] || "").length;
+            const isShort = charCount > 0 && charCount < MIN_CHARS;
+            const isOk = charCount >= MIN_CHARS;
+
+            return (
+              <div key={prompt.id} className="space-y-2">
+                <label className="text-sm font-medium text-foreground leading-relaxed block">
+                  <span className="text-muted-foreground mr-2">{i + 1}.</span>
+                  {prompt.text}
+                </label>
+                <Textarea
+                  value={answers[prompt.id] || ""}
+                  onChange={(e) => handleAnswer(prompt.id, e.target.value)}
+                  placeholder="Descreva com detalhes: qual era a situação, o que você fez e qual foi o resultado..."
+                  rows={5}
+                  className={`resize-none transition-colors ${
+                    isShort ? "border-amber-400 focus-visible:ring-amber-400/30" : ""
+                  }`}
+                />
+                <div className="flex items-center justify-between">
+                  <p className={`text-xs transition-colors ${
+                    isOk
+                      ? "text-green-600 dark:text-green-500"
+                      : isShort
+                        ? "text-amber-600 dark:text-amber-400"
+                        : "text-muted-foreground"
+                  }`}>
+                    {isOk
+                      ? `✓ ${charCount} caracteres`
+                      : charCount === 0
+                        ? `Mínimo ${MIN_CHARS} caracteres`
+                        : `${charCount}/${MIN_CHARS} caracteres — adicione mais detalhes`}
+                  </p>
+                  {isShort && (
+                    <p className="text-xs text-amber-600 dark:text-amber-400">
+                      faltam {MIN_CHARS - charCount} chars
+                    </p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </CardContent>
       </Card>
 

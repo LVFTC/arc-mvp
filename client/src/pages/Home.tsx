@@ -9,6 +9,7 @@ import IkigaiWorksheet from "./IkigaiWorksheet";
 import Review from "./Review";
 import Submitted from "./Submitted";
 import { trpc } from "@/lib/trpc";
+import { GlobalProgress } from "@/components/GlobalProgress";
 
 export type AssessmentStep =
   | "welcome"
@@ -127,6 +128,9 @@ export default function Home() {
               stepLabels={STEP_LABELS}
               onStepClick={(step) => goToStep(step as AssessmentStep)}
             />
+            {isAuthenticated && (
+              <GlobalProgress className="pb-2" />
+            )}
           </div>
         </div>
       )}

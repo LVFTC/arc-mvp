@@ -46,3 +46,9 @@
 - [x] P0: Submit desabilitado mesmo com seções completas
 - [x] P0: Resume session — "Continuar avaliação" voltando ao último step incompleto
 - [x] P0: Backend retornar status por seção (counts + missing items)
+
+## P1 Melhorias
+
+- [x] P1-3: Barra de progresso global (% concluído) persistente em todas as telas
+- [x] P1-4: Evidências — mínimo 80 chars + exemplo colapsável (situação→ação→impacto)
+- [x] P1-5: Microintervenções "ARC ensina a pensar" em cada etapa (por que, armadilha, como)

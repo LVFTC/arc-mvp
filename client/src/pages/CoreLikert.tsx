@@ -6,6 +6,56 @@ import { CORE_LIKERT_ITEMS, DIMENSIONS } from "@shared/questionBank";
 import { trpc } from "@/lib/trpc";
 import { ArrowLeft, ArrowRight, Save } from "lucide-react";
 import { toast } from "sonner";
+import { ArcTeaches, type ArcTeachesContent } from "@/components/ArcTeaches";
+
+// Microintervenções por dimensão
+const DIMENSION_TEACHES: Record<string, ArcTeachesContent> = {
+  self_management: {
+    why: "Autogestão é a base de tudo. Sem ela, habilidades técnicas e relacionais ficam instáveis. Estamos mapeando sua capacidade de se regular emocionalmente, cumprir compromissos e refletir sobre seu próprio comportamento.",
+    trap: "Responder como você 'deveria ser' em vez de como você realmente age. O Arc não é uma avaliação de desempenho — não há resposta certa.",
+    howTo: [
+      "Pense em situações reais dos últimos 6 meses, não em como você se comporta no 'melhor dia'.",
+      "Se você hesitar entre Concordo e Concordo Totalmente, escolha Concordo — a hesitação já é um dado.",
+      "Itens invertidos (ex: 'Tenho dificuldade em...') pedem honestidade sobre pontos cegos.",
+    ],
+  },
+  learning_agility: {
+    why: "Agilidade de aprendizado é o preditor mais forte de sucesso em ambientes de mudança. Estamos medindo se você busca ativamente novos desafios, aprende com erros e transfere aprendizados para contextos diferentes.",
+    trap: "Confundir 'gosto de aprender' com 'aprendo com velocidade e transfiro para a prática'. São coisas diferentes.",
+    howTo: [
+      "Foque em comportamentos concretos: você realmente buscou feedback após um erro recente?",
+      "Pense em situações onde você saiu da zona de conforto profissional nos últimos 12 meses.",
+      "Aprendizado ágil inclui desaprender — questionar crenças antigas é parte do processo.",
+    ],
+  },
+  collaboration: {
+    why: "Colaboração não é 'ser legal com todos'. É a capacidade de criar resultados coletivos melhores do que os individuais — incluindo navegar conflitos, influenciar sem autoridade e construir confiança.",
+    trap: "Avaliar colaboração pela frequência de reuniões ou pela ausência de conflito. Conflito bem gerenciado é sinal de colaboração madura.",
+    howTo: [
+      "Pense em projetos onde você dependeu de pessoas fora da sua hierarquia direta.",
+      "Avalie sua capacidade de ceder em pontos menores para avançar em pontos maiores.",
+      "Colaboração inclui dar crédito, compartilhar informação e pedir ajuda — não só entregar.",
+    ],
+  },
+  communication: {
+    why: "Comunicação é o multiplicador de todas as outras competências. Estamos medindo clareza, adaptação de linguagem para diferentes audiências e capacidade de ouvir ativamente — não apenas de falar bem.",
+    trap: "Confundir 'falo muito' ou 'sou extrovertido' com comunicação eficaz. Comunicação é sobre impacto no receptor, não volume do emissor.",
+    howTo: [
+      "Pense em situações onde você precisou comunicar algo difícil ou impopular.",
+      "Avalie se você adapta o nível técnico da sua comunicação para a audiência.",
+      "Escuta ativa significa reformular o que o outro disse antes de responder — você faz isso?",
+    ],
+  },
+  innovation: {
+    why: "Inovação no contexto do Arc não é sobre ter ideias geniais. É sobre a disposição de questionar o status quo, testar hipóteses com recursos limitados e aprender com experimentos que não deram certo.",
+    trap: "Avaliar inovação pela quantidade de ideias geradas. O que importa é a capacidade de levar uma ideia do conceito à execução, mesmo com incerteza.",
+    howTo: [
+      "Pense em situações onde você propôs uma mudança de processo ou abordagem diferente.",
+      "Avalie sua tolerância a ambiguidade: você consegue agir com 60% das informações?",
+      "Inovação inclui dizer não para o que não funciona — abandono intencional é uma competência.",
+    ],
+  },
+};
 
 interface CoreLikertProps {
   onNext: () => void;
@@ -123,7 +173,12 @@ export default function CoreLikert({ onNext, onPrev }: CoreLikertProps) {
             ))}
           </div>
         </CardHeader>
-        <CardContent className="space-y-3">
+        <CardContent className="space-y-4">
+          {/* Microintervenção ARC ensina a pensar */}
+          {DIMENSION_TEACHES[currentDimension.key] && (
+            <ArcTeaches content={DIMENSION_TEACHES[currentDimension.key]} />
+          )}
+
           {dimensionItems.map((item, i) => (
             <LikertQuestion
               key={item.id}

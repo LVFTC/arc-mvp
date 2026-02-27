@@ -6,6 +6,17 @@ import { BIG_FIVE_ITEMS, BIG_FIVE_TRAITS } from "@shared/questionBank";
 import { trpc } from "@/lib/trpc";
 import { ArrowLeft, Save, Fingerprint } from "lucide-react";
 import { toast } from "sonner";
+import { ArcTeaches, type ArcTeachesContent } from "@/components/ArcTeaches";
+
+const BIG_FIVE_TEACH: ArcTeachesContent = {
+  why: "O Big Five (Mini-IPIP) é o modelo de personalidade mais validado cientificamente no mundo. Ele não mede competência — mede tendências naturais de comportamento. Esses dados complementam suas agilidades e ajudam a identificar contextos onde você tende a prosperar ou a se desgastar.",
+  trap: "Responder como você 'gostaria de ser' em vez de como você realmente é. Introversão não é fraqueza, baixa abertura não é limitante — cada perfil tem contextos ótimos.",
+  howTo: [
+    "Responda pensando em como você é na maioria das situações, não no seu melhor ou pior dia.",
+    "Não existe perfil ideal — o objetivo é mapear seu ponto de partida real, não um destino desejado.",
+    "Itens invertidos (ex: 'Tenho dificuldade em...') são intencionais para reduzir viés de desejabilidade social.",
+  ],
+};
 
 interface BigFiveProps {
   onNext: () => void;
@@ -92,6 +103,9 @@ export default function BigFive({ onNext, onPrev }: BigFiveProps) {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
+          {/* Microintervenção ARC ensina a pensar */}
+          <ArcTeaches content={BIG_FIVE_TEACH} />
+
           {groupedByTrait.map((trait) => (
             <div key={trait.key} className="space-y-3">
               <h3 className="text-sm font-semibold text-primary border-b border-border pb-1">

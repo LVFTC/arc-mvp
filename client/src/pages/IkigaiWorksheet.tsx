@@ -7,6 +7,17 @@ import type { IkigaiCircleKey, IkigaiZoneKey } from "@shared/questionBank";
 import { trpc } from "@/lib/trpc";
 import { ArrowLeft, ArrowRight, Save, Plus, X, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
+import { ArcTeaches, type ArcTeachesContent } from "@/components/ArcTeaches";
+
+const IKIGAI_TEACH: ArcTeachesContent = {
+  why: "O IKIGAI é uma ferramenta de mapeamento de propósito, não de definição. Não estamos pedindo que você descubra 'sua missão de vida' agora. Estamos coletando dados sobre o que te energiza, o que você faz bem, o que o mundo precisa e pelo que já existe demanda — para cruzar essas informações no seu relatório.",
+  trap: "Escrever o que você 'deveria' amar ou o que soa bem socialmente. O IKIGAI é mais útil quando honesto do que quando aspiracional.",
+  howTo: [
+    "Liste atividades, não valores abstratos. 'Resolver problemas complexos de dados' é melhor do que 'ser útil'.",
+    "O ranking importa: o item 1 deve ser o que mais te define, não o que soa melhor.",
+    "Para 'Posso ser pago': pense no mercado atual, não no mercado ideal. O que já existe demanda hoje?",
+  ],
+};
 
 interface IkigaiWorksheetProps {
   onNext: () => void;
@@ -248,6 +259,9 @@ export default function IkigaiWorksheet({ onNext, onPrev }: IkigaiWorksheetProps
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Microintervenção ARC ensina a pensar */}
+          <ArcTeaches content={IKIGAI_TEACH} />
+
           {/* Prompts */}
           <div className="p-3 rounded-lg bg-muted/50 space-y-1">
             {currentCircle.prompts.map((prompt, i) => (
