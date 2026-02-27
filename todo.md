@@ -52,3 +52,7 @@
 - [x] P1-3: Barra de progresso global (% concluído) persistente em todas as telas
 - [x] P1-4: Evidências — mínimo 80 chars + exemplo colapsável (situação→ação→impacto)
 - [x] P1-5: Microintervenções "ARC ensina a pensar" em cada etapa (por que, armadilha, como)
+
+## P0 Bug #2
+
+- [x] Bug: "Voltar ao início" na tela Submitted leva de volta ao submitted (loop infinito por resume session)

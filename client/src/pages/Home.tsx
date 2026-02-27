@@ -52,11 +52,12 @@ export default function Home() {
   );
 
   // Resume session: set step based on backend status
+  // NOTE: never auto-redirect to "submitted" — let the user choose to restart
   useEffect(() => {
     if (status && !resumeChecked.current) {
       resumeChecked.current = true;
       const resumeStep = status.resumeStep as AssessmentStep;
-      if (STEPS.includes(resumeStep)) {
+      if (STEPS.includes(resumeStep) && resumeStep !== "submitted") {
         setCurrentStep(resumeStep);
       }
     }
@@ -111,7 +112,10 @@ export default function Home() {
           />
         );
       case "submitted":
-        return <Submitted />;
+        return <Submitted onRestart={() => {
+          resumeChecked.current = false;
+          goToStep("welcome");
+        }} />;
       default:
         return <Welcome onStart={nextStep} />;
     }

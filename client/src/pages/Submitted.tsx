@@ -2,7 +2,11 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { CheckCircle2, FileText } from "lucide-react";
 
-export default function Submitted() {
+interface SubmittedProps {
+  onRestart?: () => void;
+}
+
+export default function Submitted({ onRestart }: SubmittedProps) {
   return (
     <div className="min-h-[60vh] flex items-center justify-center">
       <Card className="border-0 shadow-sm max-w-md w-full">
@@ -34,7 +38,7 @@ export default function Submitted() {
 
           <Button
             variant="outline"
-            onClick={() => window.location.reload()}
+            onClick={() => onRestart ? onRestart() : window.location.href = '/'}
             className="gap-2"
           >
             Voltar ao início
