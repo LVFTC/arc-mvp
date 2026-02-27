@@ -8,6 +8,7 @@ import {
   userChoices, InsertUserChoice,
   auditLogs, InsertAuditLog,
   tags,
+  userPlan90d, InsertUserPlan90d,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import {
@@ -249,6 +250,34 @@ export async function getAuditLogs(userId: number) {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(auditLogs).where(eq(auditLogs.userId, userId));
+}
+
+// ─── Plano 90 Dias ────────────────────────────────────────────────────
+
+export async function savePlan90d(
+  userId: number,
+  data: Omit<InsertUserPlan90d, "userId">
+) {
+  const db = await getDb();
+  if (!db) return;
+
+  const existing = await db.select({ id: userPlan90d.id })
+    .from(userPlan90d)
+    .where(eq(userPlan90d.userId, userId))
+    .limit(1);
+
+  if (existing.length > 0) {
+    await db.update(userPlan90d).set(data).where(eq(userPlan90d.userId, userId));
+  } else {
+    await db.insert(userPlan90d).values({ userId, ...data });
+  }
+}
+
+export async function getPlan90d(userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(userPlan90d).where(eq(userPlan90d.userId, userId)).limit(1);
+  return result.length > 0 ? result[0] : null;
 }
 
 // ─── Full Assessment Data (for Review page) ────────────────────

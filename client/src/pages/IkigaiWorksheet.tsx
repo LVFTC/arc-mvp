@@ -10,12 +10,12 @@ import { toast } from "sonner";
 import { ArcTeaches, type ArcTeachesContent } from "@/components/ArcTeaches";
 
 const IKIGAI_TEACH: ArcTeachesContent = {
-  why: "O IKIGAI é uma ferramenta de mapeamento de propósito, não de definição. Não estamos pedindo que você descubra 'sua missão de vida' agora. Estamos coletando dados sobre o que te energiza, o que você faz bem, o que o mundo precisa e pelo que já existe demanda — para cruzar essas informações no seu relatório.",
-  trap: "Escrever o que você 'deveria' amar ou o que soa bem socialmente. O IKIGAI é mais útil quando honesto do que quando aspiracional.",
+  why: "O IKIGAI aqui é um instrumento de mapeamento, não uma definição final. Não estamos pedindo que você descubra 'sua missão de vida' agora. Estamos coletando dados sobre o que te energiza, no que você entrega bem, que tipo de impacto te importa e quais caminhos têm demanda. O objetivo é gerar hipóteses consistentes.",
+  trap: "Preencher com respostas aspiracionais (o que soa bem) em vez do que é verdadeiro e recorrente. Isso deixa o mapa bonito, mas inútil para decisão.",
   howTo: [
-    "Liste atividades, não valores abstratos. 'Resolver problemas complexos de dados' é melhor do que 'ser útil'.",
-    "O ranking importa: o item 1 deve ser o que mais te define, não o que soa melhor.",
-    "Para 'Posso ser pago': pense no mercado atual, não no mercado ideal. O que já existe demanda hoje?",
+    "Liste atividades e temas concretos, não valores abstratos.",
+    "Leve o ranking a sério. O item 1 é o que mais te move hoje, não o que parece mais 'nobre'.",
+    "Em 'Posso ser pago', pense no mercado atual e no que já existe demanda hoje. Não no cenário ideal.",
   ],
 };
 

@@ -6,6 +6,7 @@ import CoreLikert from "./CoreLikert";
 import CoreEvidence from "./CoreEvidence";
 import BigFive from "./BigFive";
 import IkigaiWorksheet from "./IkigaiWorksheet";
+import Plan90D from "./Plan90D";
 import Review from "./Review";
 import Submitted from "./Submitted";
 import { trpc } from "@/lib/trpc";
@@ -17,6 +18,7 @@ export type AssessmentStep =
   | "core_evidence"
   | "bigfive"
   | "ikigai"
+  | "plan90d"
   | "review"
   | "submitted";
 
@@ -26,6 +28,7 @@ const STEPS: AssessmentStep[] = [
   "core_evidence",
   "bigfive",
   "ikigai",
+  "plan90d",
   "review",
   "submitted",
 ];
@@ -36,6 +39,7 @@ const STEP_LABELS: Record<AssessmentStep, string> = {
   core_evidence: "Evidências",
   bigfive: "Personalidade",
   ikigai: "IKIGAI",
+  plan90d: "Plano 90D",
   review: "Revisão",
   submitted: "Concluído",
 };
@@ -103,6 +107,8 @@ export default function Home() {
         return <BigFive onNext={nextStep} onPrev={prevStep} />;
       case "ikigai":
         return <IkigaiWorksheet onNext={nextStep} onPrev={prevStep} />;
+      case "plan90d":
+        return <Plan90D onNext={nextStep} onPrev={prevStep} />;
       case "review":
         return (
           <Review

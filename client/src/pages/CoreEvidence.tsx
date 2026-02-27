@@ -11,12 +11,12 @@ import { ArcTeaches, type ArcTeachesContent } from "@/components/ArcTeaches";
 
 // Microintervenção para etapa de evidências
 const EVIDENCE_TEACH: ArcTeachesContent = {
-  why: "Evidências transformam autopercepção em dado verificado. Qualquer pessoa pode dizer que é um bom comunicador — poucos conseguem descrever uma situação concreta onde isso foi testado. Estamos calibrando suas respostas do questionário com exemplos reais.",
-  trap: "Escrever frases genéricas como 'sempre ajudo meu time' ou 'sou muito dedicado'. Isso não é evidência — é opinião. Evidência tem contexto, ação e resultado.",
+  why: "Evidências transformam sua autopercepção em dado verificável. É fácil dizer 'sou bom nisso'. Difícil é descrever uma situação concreta onde isso foi exigido e o que aconteceu. Aqui estamos calibrando o que você marcou no questionário com exemplos reais.",
+  trap: "Escrever frases genéricas ('sou dedicado', 'sempre ajudo meu time') sem contexto. Isso não é evidência, é opinião. Evidência tem situação, ação e resultado.",
   howTo: [
-    "Use a estrutura Situação → Ação → Impacto: o que aconteceu, o que você fez especificamente e o que mudou.",
-    "Seja específico: 'reduzimos o prazo em 3 dias' é melhor do que 'melhoramos o processo'.",
-    "Não precisa ser um grande feito — uma situação cotidiana bem descrita vale mais do que um projeto heroico vago.",
+    "Use Situação, Ação, Impacto. O que aconteceu, o que você fez especificamente e o que mudou.",
+    "Seja específico. 'reduzi o prazo em 3 dias' é melhor do que 'melhorei o processo'.",
+    "Não precisa ser um grande feito. Uma situação comum bem descrita vale mais do que um caso heroíco vago.",
   ],
 };
 

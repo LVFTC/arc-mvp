@@ -16,6 +16,8 @@ import {
   getFullAssessment,
   getAssessmentStatus,
   updateUserLgpdConsent,
+  savePlan90d,
+  getPlan90d,
 } from "./db";
 
 export const appRouter = router({
@@ -128,6 +130,29 @@ export const appRouter = router({
 
     get: protectedProcedure.query(async ({ ctx }) => {
       return getUserChoices(ctx.user.id);
+    }),
+  }),
+
+  // ─── Plano 90 Dias ────────────────────────────────────────────────────
+  plan90d: router({
+    save: protectedProcedure
+      .input(z.object({
+        cycleObjective: z.string().max(300).nullable().optional(),
+        checkpoint1Date: z.string().max(16).nullable().optional(),
+        checkpoint2Date: z.string().max(16).nullable().optional(),
+        checkpoint3Date: z.string().max(16).nullable().optional(),
+        selected70: z.array(z.string()).optional(),
+        selected20: z.array(z.string()).optional(),
+        selected10: z.array(z.string()).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await savePlan90d(ctx.user.id, input);
+        await createAuditLog(ctx.user.id, "plan90d_saved", { selected70: input.selected70?.length, selected20: input.selected20?.length, selected10: input.selected10?.length });
+        return { success: true };
+      }),
+
+    get: protectedProcedure.query(async ({ ctx }) => {
+      return getPlan90d(ctx.user.id);
     }),
   }),
 

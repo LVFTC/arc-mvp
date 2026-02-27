@@ -11,12 +11,12 @@ import { ArcTeaches, type ArcTeachesContent } from "@/components/ArcTeaches";
 // Microintervenções por dimensão
 const DIMENSION_TEACHES: Record<string, ArcTeachesContent> = {
   self_management: {
-    why: "Autogestão é a base de tudo. Sem ela, habilidades técnicas e relacionais ficam instáveis. Estamos mapeando sua capacidade de se regular emocionalmente, cumprir compromissos e refletir sobre seu próprio comportamento.",
-    trap: "Responder como você 'deveria ser' em vez de como você realmente age. O Arc não é uma avaliação de desempenho — não há resposta certa.",
+    why: "Autogestão sustenta a sua consistência. Sem ela, habilidades técnicas e sociais ficam instáveis. Aqui estamos mapeando sua capacidade de (1) cumprir compromissos, (2) se regular emocionalmente e (3) perceber quando seu comportamento começa a atrapalhar suas decisões e relações.",
+    trap: "Responder com base no 'eu deveria ser' em vez do 'eu costumo fazer'. O ARC não é uma prova e não tem resposta certa. O valor está em mapear o padrão real.",
     howTo: [
-      "Pense em situações reais dos últimos 6 meses, não em como você se comporta no 'melhor dia'.",
-      "Se você hesitar entre Concordo e Concordo Totalmente, escolha Concordo — a hesitação já é um dado.",
-      "Itens invertidos (ex: 'Tenho dificuldade em...') pedem honestidade sobre pontos cegos.",
+      "Responda pensando na sua média dos últimos 3 meses, não no seu melhor dia.",
+      "Se você ficar entre 'Concordo' e 'Concordo totalmente', marque 'Concordo'. A hesitação já é um dado.",
+      "Itens invertidos (ex.: 'tenho dificuldade...') existem para reduzir viés. Responda com honestidade, não com a versão ideal.",
     ],
   },
   learning_agility: {

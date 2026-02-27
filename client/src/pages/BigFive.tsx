@@ -9,12 +9,12 @@ import { toast } from "sonner";
 import { ArcTeaches, type ArcTeachesContent } from "@/components/ArcTeaches";
 
 const BIG_FIVE_TEACH: ArcTeachesContent = {
-  why: "O Big Five (Mini-IPIP) é o modelo de personalidade mais validado cientificamente no mundo. Ele não mede competência — mede tendências naturais de comportamento. Esses dados complementam suas agilidades e ajudam a identificar contextos onde você tende a prosperar ou a se desgastar.",
-  trap: "Responder como você 'gostaria de ser' em vez de como você realmente é. Introversão não é fraqueza, baixa abertura não é limitante — cada perfil tem contextos ótimos.",
+  why: "Big Five (Mini-IPIP) é um dos modelos mais validados cientificamente. Ele não mede competência. Ele mede tendências de comportamento. Esses dados complementam as agilidades e ajudam a identificar contextos onde você tende a funcionar melhor ou se desgastar com mais facilidade.",
+  trap: "Responder como você 'gostaria de ser', e não como você costuma agir. Não existe perfil ideal. Cada traço tem vantagens e custos dependendo do contexto.",
   howTo: [
-    "Responda pensando em como você é na maioria das situações, não no seu melhor ou pior dia.",
-    "Não existe perfil ideal — o objetivo é mapear seu ponto de partida real, não um destino desejado.",
-    "Itens invertidos (ex: 'Tenho dificuldade em...') são intencionais para reduzir viés de desejabilidade social.",
+    "Responda pensando em como você é na maioria das situações (média), não no melhor ou pior dia.",
+    "O objetivo é mapear seu ponto de partida real, não criar uma versão desejada.",
+    "Itens invertidos (ex.: 'não falo muito') existem para reduzir viés de desejabilidade social.",
   ],
 };
 

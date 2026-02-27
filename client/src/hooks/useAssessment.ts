@@ -6,6 +6,7 @@ export type AssessmentStep =
   | "core_evidence"
   | "bigfive"
   | "ikigai"
+  | "plan90d"
   | "review"
   | "submitted";
 
@@ -15,6 +16,7 @@ const STEPS: AssessmentStep[] = [
   "core_evidence",
   "bigfive",
   "ikigai",
+  "plan90d",
   "review",
   "submitted",
 ];
@@ -25,6 +27,7 @@ const STEP_LABELS: Record<AssessmentStep, string> = {
   core_evidence: "Evidências",
   bigfive: "Personalidade",
   ikigai: "IKIGAI",
+  plan90d: "Plano 90D",
   review: "Revisão",
   submitted: "Concluído",
 };

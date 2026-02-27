@@ -5,12 +5,11 @@ import { trpc } from "@/lib/trpc";
 import {
   CORE_LIKERT_ITEMS,
   CORE_EVIDENCE_PROMPTS,
-  BIG_FIVE_ITEMS,
-  BIG_FIVE_TRAITS,
   DIMENSIONS,
   IKIGAI_CIRCLES,
   IKIGAI_ZONES,
 } from "@shared/questionBank";
+import { BigFiveResults } from "@/components/BigFiveResults";
 import { ArrowLeft, Send, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 
@@ -70,25 +69,9 @@ export default function Review({ onSubmit, onPrev, onGoToStep }: ReviewProps) {
     };
   });
 
-  // Big Five scores
-  const bigFiveScores = BIG_FIVE_TRAITS.map((trait) => {
-    const items = BIG_FIVE_ITEMS.filter((i) => i.trait === trait.key);
-    let total = 0;
-    let count = 0;
-    items.forEach((item) => {
-      const val = likertMap.get(item.id);
-      if (val !== undefined) {
-        total += item.reverse ? (6 - val) : val;
-        count++;
-      }
-    });
-    return {
-      ...trait,
-      score: count > 0 ? (total / count).toFixed(1) : "—",
-      answered: count,
-      total: items.length,
-    };
-  });
+  // Build answers map for BigFiveResults
+  const bigFiveAnswers: Record<string, number> = {};
+  likert.forEach(r => { bigFiveAnswers[r.itemId] = r.value; });
 
   // IKIGAI data
   const ikigaiByCircle = IKIGAI_CIRCLES.map((circle) => ({
@@ -235,17 +218,7 @@ export default function Review({ onSubmit, onPrev, onGoToStep }: ReviewProps) {
           </div>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {bigFiveScores.map((trait) => (
-              <div key={trait.key} className="flex items-center justify-between p-3 rounded-lg bg-muted/30">
-                <span className="text-sm">{trait.label}</span>
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-primary">{trait.score}</span>
-                  <span className="text-xs text-muted-foreground">/5</span>
-                </div>
-              </div>
-            ))}
-          </div>
+          <BigFiveResults answers={bigFiveAnswers} />
         </CardContent>
       </Card>
 

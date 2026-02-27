@@ -88,6 +88,25 @@ export const auditLogs = mysqlTable("audit_logs", {
 export type AuditLog = typeof auditLogs.$inferSelect;
 export type InsertAuditLog = typeof auditLogs.$inferInsert;
 
+// ─── Plano 90 Dias (70/20/10) ────────────────────────────────
+export const userPlan90d = mysqlTable("user_plan_90d", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().unique(), // one plan per user
+  cycleObjective: text("cycleObjective"),   // "objetivo do ciclo (1 frase)"
+  checkpoint1Date: varchar("checkpoint1Date", { length: 16 }), // YYYY-MM-DD
+  checkpoint2Date: varchar("checkpoint2Date", { length: 16 }),
+  checkpoint3Date: varchar("checkpoint3Date", { length: 16 }),
+  // JSON arrays of selected template option IDs per block (no DB default — TiDB limitation)
+  selected70: json("selected70").$type<string[]>(),
+  selected20: json("selected20").$type<string[]>(),
+  selected10: json("selected10").$type<string[]>(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type UserPlan90d = typeof userPlan90d.$inferSelect;
+export type InsertUserPlan90d = typeof userPlan90d.$inferInsert;
+
 // ─── Tags (future-proof, prepared schema) ──────────────────────
 export const tags = mysqlTable("tags", {
   id: int("id").autoincrement().primaryKey(),

@@ -56,3 +56,14 @@
 ## P0 Bug #2
 
 - [x] Bug: "Voltar ao início" na tela Submitted leva de volta ao submitted (loop infinito por resume session)
+
+## Entrega 2 (NORMAL)
+
+- [x] E2: Atualizar copy ArcTeaches (4 blocos: Autogestão, Evidências, Big Five, IKIGAI)
+- [x] E2: Schema DB para plano 90 dias (user_plan_90d)
+- [x] E2: Backend tRPC: salvar/carregar plano 90 dias
+- [x] E2: Frontend Plan90D: templates 70/20/10 com checkboxes (1-3 opções por bloco)
+- [x] E2: Frontend Plan90D: campo objetivo do ciclo (1 frase) + 3 checkpoints quinzenais
+- [x] E2: Integrar Plan90D no fluxo (após IKIGAI, antes do Review)
+- [x] E2: Big Five visual com barras por traço + contextos favorecem/drenam
+- [x] E2: Dashboard pós-submit: status das seções + zona escolhida + botão Gerar PDF
