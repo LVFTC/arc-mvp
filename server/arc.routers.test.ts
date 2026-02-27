@@ -28,6 +28,19 @@ vi.mock("./db", () => ({
   getFullAssessment: vi.fn().mockResolvedValue({
     likert: [], evidence: [], ikigai: [], choices: null,
   }),
+  getAssessmentStatus: vi.fn().mockResolvedValue({
+    sections: {
+      lgpd: { complete: true },
+      core_likert: { answered: 40, total: 40, complete: true },
+      core_evidence: { answered: 10, total: 10, complete: true },
+      bigfive: { answered: 20, total: 20, complete: true },
+      ikigai: { circles: [], complete: true },
+      zone: { chosen: "passion", complete: true },
+    },
+    resumeStep: "review",
+    assessmentStatus: "in_progress",
+    allComplete: true,
+  }),
   updateUserLgpdConsent: vi.fn().mockResolvedValue(undefined),
   upsertUser: vi.fn().mockResolvedValue(undefined),
   getUserByOpenId: vi.fn().mockResolvedValue(undefined),
@@ -97,8 +110,9 @@ describe("Arc Assessment Routers", () => {
 
   // ─── Likert Responses ────────────────────────────────────
   describe("likert", () => {
-    it("saves likert responses", async () => {
+    it("saves CORE likert responses with section param", async () => {
       const result = await authCaller.likert.save({
+        section: "core",
         items: [
           { dimension: "self_management", itemId: "sm_1", value: 4, reverseFlag: false },
           { dimension: "self_management", itemId: "sm_7", value: 2, reverseFlag: true },
@@ -107,10 +121,30 @@ describe("Arc Assessment Routers", () => {
       expect(result).toEqual({ success: true });
     });
 
+    it("saves Big Five likert responses with section param", async () => {
+      const result = await authCaller.likert.save({
+        section: "bigfive",
+        items: [
+          { dimension: "bigfive_extraversion", itemId: "bf_e1", value: 3, reverseFlag: false },
+        ],
+      });
+      expect(result).toEqual({ success: true });
+    });
+
     it("validates value range (1-5)", async () => {
       await expect(
         authCaller.likert.save({
+          section: "core",
           items: [{ dimension: "test", itemId: "t1", value: 6, reverseFlag: false }],
+        })
+      ).rejects.toThrow();
+    });
+
+    it("validates section enum", async () => {
+      await expect(
+        authCaller.likert.save({
+          section: "invalid" as any,
+          items: [{ dimension: "test", itemId: "t1", value: 3, reverseFlag: false }],
         })
       ).rejects.toThrow();
     });
@@ -211,6 +245,22 @@ describe("Arc Assessment Routers", () => {
       expect(result).toHaveProperty("evidence");
       expect(result).toHaveProperty("ikigai");
       expect(result).toHaveProperty("choices");
+    });
+
+    it("gets assessment status with section details", async () => {
+      const result = await authCaller.assessment.status();
+      expect(result).toHaveProperty("sections");
+      expect(result).toHaveProperty("resumeStep");
+      expect(result).toHaveProperty("allComplete");
+      expect(result.sections).toHaveProperty("core_likert");
+      expect(result.sections).toHaveProperty("bigfive");
+      expect(result.sections).toHaveProperty("ikigai");
+      expect(result.sections).toHaveProperty("zone");
+      expect(result.sections).toHaveProperty("lgpd");
+    });
+
+    it("rejects unauthenticated status", async () => {
+      await expect(unauthCaller.assessment.status()).rejects.toThrow();
     });
 
     it("submits assessment", async () => {

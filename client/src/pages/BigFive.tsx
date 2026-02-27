@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { LikertQuestion } from "@/components/LikertQuestion";
@@ -14,16 +14,20 @@ interface BigFiveProps {
 
 export default function BigFive({ onNext, onPrev }: BigFiveProps) {
   const [answers, setAnswers] = useState<Record<string, number>>({});
+  const loadedRef = useRef(false);
   const saveMutation = trpc.likert.save.useMutation();
 
-  const { data: existingAnswers } = trpc.likert.get.useQuery();
-  useMemo(() => {
-    if (existingAnswers && existingAnswers.length > 0) {
+  const { data: existingAnswers, isLoading } = trpc.likert.get.useQuery();
+
+  useEffect(() => {
+    if (existingAnswers && existingAnswers.length > 0 && !loadedRef.current) {
+      loadedRef.current = true;
       const loaded: Record<string, number> = {};
+      const bfIds = new Set(BIG_FIVE_ITEMS.map(i => i.id));
       existingAnswers
-        .filter((a) => a.itemId.startsWith("bf_"))
-        .forEach((a) => { loaded[a.itemId] = a.value; });
-      if (Object.keys(loaded).length > 0 && Object.keys(answers).length === 0) {
+        .filter(a => bfIds.has(a.itemId))
+        .forEach(a => { loaded[a.itemId] = a.value; });
+      if (Object.keys(loaded).length > 0) {
         setAnswers(loaded);
       }
     }
@@ -46,7 +50,7 @@ export default function BigFive({ onNext, onPrev }: BigFiveProps) {
           value: answers[item.id],
           reverseFlag: item.reverse,
         }));
-      await saveMutation.mutateAsync({ items });
+      await saveMutation.mutateAsync({ section: "bigfive", items });
       toast.success("Personalidade salva!");
       onNext();
     } catch {
@@ -54,11 +58,18 @@ export default function BigFive({ onNext, onPrev }: BigFiveProps) {
     }
   };
 
-  // Group items by trait for visual organization
   const groupedByTrait = BIG_FIVE_TRAITS.map((trait) => ({
     ...trait,
     items: BIG_FIVE_ITEMS.filter((item) => item.trait === trait.key),
   }));
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-pulse text-muted-foreground">Carregando respostas...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -15,14 +15,19 @@ interface CoreEvidenceProps {
 export default function CoreEvidence({ onNext, onPrev }: CoreEvidenceProps) {
   const [dimensionIdx, setDimensionIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, string>>({});
+  const loadedRef = useRef(false);
   const saveMutation = trpc.evidence.save.useMutation();
 
-  const { data: existingAnswers } = trpc.evidence.get.useQuery();
-  useMemo(() => {
-    if (existingAnswers && existingAnswers.length > 0 && Object.keys(answers).length === 0) {
+  const { data: existingAnswers, isLoading } = trpc.evidence.get.useQuery();
+
+  useEffect(() => {
+    if (existingAnswers && existingAnswers.length > 0 && !loadedRef.current) {
+      loadedRef.current = true;
       const loaded: Record<string, string> = {};
       existingAnswers.forEach((a) => { loaded[a.promptId] = a.text; });
-      setAnswers(loaded);
+      if (Object.keys(loaded).length > 0) {
+        setAnswers(loaded);
+      }
     }
   }, [existingAnswers]);
 
@@ -69,6 +74,14 @@ export default function CoreEvidence({ onNext, onPrev }: CoreEvidenceProps) {
       onPrev();
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-pulse text-muted-foreground">Carregando respostas...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

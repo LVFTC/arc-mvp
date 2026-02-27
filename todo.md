@@ -38,3 +38,11 @@
 
 - [ ] Deploy privado
 - [ ] Coleta de feedback
+
+## P0 Bugs (bloqueadores)
+
+- [x] P0: Likert/Big Five não persistem após reload — dados não carregam do DB
+- [x] P0: Review mostra "—/5" mesmo com dados existentes no backend
+- [x] P0: Submit desabilitado mesmo com seções completas
+- [x] P0: Resume session — "Continuar avaliação" voltando ao último step incompleto
+- [x] P0: Backend retornar status por seção (counts + missing items)

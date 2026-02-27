@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { LikertQuestion } from "@/components/LikertQuestion";
@@ -15,15 +15,24 @@ interface CoreLikertProps {
 export default function CoreLikert({ onNext, onPrev }: CoreLikertProps) {
   const [dimensionIdx, setDimensionIdx] = useState(0);
   const [answers, setAnswers] = useState<Record<string, number>>({});
+  const loadedRef = useRef(false);
   const saveMutation = trpc.likert.save.useMutation();
 
-  // Load existing answers
-  const { data: existingAnswers } = trpc.likert.get.useQuery();
-  useMemo(() => {
-    if (existingAnswers && existingAnswers.length > 0 && Object.keys(answers).length === 0) {
+  // Load existing answers from DB
+  const { data: existingAnswers, isLoading } = trpc.likert.get.useQuery();
+
+  useEffect(() => {
+    if (existingAnswers && existingAnswers.length > 0 && !loadedRef.current) {
+      loadedRef.current = true;
       const loaded: Record<string, number> = {};
-      existingAnswers.forEach((a) => { loaded[a.itemId] = a.value; });
-      setAnswers(loaded);
+      // Only load CORE items (not bigfive)
+      const coreIds = new Set(CORE_LIKERT_ITEMS.map(i => i.id));
+      existingAnswers
+        .filter(a => coreIds.has(a.itemId))
+        .forEach(a => { loaded[a.itemId] = a.value; });
+      if (Object.keys(loaded).length > 0) {
+        setAnswers(loaded);
+      }
     }
   }, [existingAnswers]);
 
@@ -45,7 +54,7 @@ export default function CoreLikert({ onNext, onPrev }: CoreLikertProps) {
       setDimensionIdx(dimensionIdx + 1);
       window.scrollTo({ top: 0, behavior: "smooth" });
     } else {
-      // Save all likert answers
+      // Save all CORE likert answers
       try {
         const items = CORE_LIKERT_ITEMS
           .filter((item) => answers[item.id] !== undefined)
@@ -55,7 +64,7 @@ export default function CoreLikert({ onNext, onPrev }: CoreLikertProps) {
             value: answers[item.id],
             reverseFlag: item.reverse,
           }));
-        await saveMutation.mutateAsync({ items });
+        await saveMutation.mutateAsync({ section: "core", items });
         toast.success("Respostas de agilidades salvas!");
         onNext();
       } catch {
@@ -72,6 +81,14 @@ export default function CoreLikert({ onNext, onPrev }: CoreLikertProps) {
       onPrev();
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-pulse text-muted-foreground">Carregando respostas...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

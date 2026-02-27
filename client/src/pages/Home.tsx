@@ -1,5 +1,5 @@
+import { useEffect, useState, useRef } from "react";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { useAssessment } from "@/hooks/useAssessment";
 import { StepProgress } from "@/components/StepProgress";
 import Welcome from "./Welcome";
 import CoreLikert from "./CoreLikert";
@@ -8,20 +8,80 @@ import BigFive from "./BigFive";
 import IkigaiWorksheet from "./IkigaiWorksheet";
 import Review from "./Review";
 import Submitted from "./Submitted";
-import type { AssessmentStep } from "@/hooks/useAssessment";
+import { trpc } from "@/lib/trpc";
+
+export type AssessmentStep =
+  | "welcome"
+  | "core_likert"
+  | "core_evidence"
+  | "bigfive"
+  | "ikigai"
+  | "review"
+  | "submitted";
+
+const STEPS: AssessmentStep[] = [
+  "welcome",
+  "core_likert",
+  "core_evidence",
+  "bigfive",
+  "ikigai",
+  "review",
+  "submitted",
+];
+
+const STEP_LABELS: Record<AssessmentStep, string> = {
+  welcome: "Início",
+  core_likert: "Agilidades",
+  core_evidence: "Evidências",
+  bigfive: "Personalidade",
+  ikigai: "IKIGAI",
+  review: "Revisão",
+  submitted: "Concluído",
+};
 
 export default function Home() {
-  const { user, loading } = useAuth();
-  const {
-    currentStep,
-    steps,
-    stepLabels,
-    goToStep,
-    nextStep,
-    prevStep,
-  } = useAssessment();
+  const { user, loading: authLoading, isAuthenticated } = useAuth();
+  const [currentStep, setCurrentStep] = useState<AssessmentStep>("welcome");
+  const resumeChecked = useRef(false);
 
-  if (loading) {
+  // Only query status if authenticated
+  const { data: status, isLoading: statusLoading } = trpc.assessment.status.useQuery(
+    undefined,
+    { enabled: !!isAuthenticated }
+  );
+
+  // Resume session: set step based on backend status
+  useEffect(() => {
+    if (status && !resumeChecked.current) {
+      resumeChecked.current = true;
+      const resumeStep = status.resumeStep as AssessmentStep;
+      if (STEPS.includes(resumeStep)) {
+        setCurrentStep(resumeStep);
+      }
+    }
+  }, [status]);
+
+  const goToStep = (step: AssessmentStep) => {
+    setCurrentStep(step);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const nextStep = () => {
+    const idx = STEPS.indexOf(currentStep);
+    if (idx < STEPS.length - 1) {
+      goToStep(STEPS[idx + 1]);
+    }
+  };
+
+  const prevStep = () => {
+    const idx = STEPS.indexOf(currentStep);
+    if (idx > 0) {
+      goToStep(STEPS[idx - 1]);
+    }
+  };
+
+  // Show loading while checking auth and status
+  if (authLoading || (isAuthenticated && statusLoading)) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="animate-pulse text-muted-foreground">Carregando...</div>
@@ -62,10 +122,10 @@ export default function Home() {
         <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border">
           <div className="container max-w-3xl mx-auto px-4">
             <StepProgress
-              steps={steps}
+              steps={STEPS}
               currentStep={currentStep}
-              stepLabels={stepLabels}
-              onStepClick={(step) => goToStep(step)}
+              stepLabels={STEP_LABELS}
+              onStepClick={(step) => goToStep(step as AssessmentStep)}
             />
           </div>
         </div>

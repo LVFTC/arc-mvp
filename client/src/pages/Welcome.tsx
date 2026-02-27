@@ -16,7 +16,20 @@ export default function Welcome({ onStart }: WelcomeProps) {
   const [lgpdConsent, setLgpdConsent] = useState(false);
   const consentMutation = trpc.lgpd.consent.useMutation();
 
+  // Check if user already has LGPD consent (resume scenario)
+  const { data: status } = trpc.assessment.status.useQuery(undefined, {
+    enabled: !!isAuthenticated,
+  });
+
+  const hasExistingConsent = status?.sections?.lgpd?.complete === true;
+  const hasProgress = hasExistingConsent && status?.resumeStep !== "welcome";
+
   const handleStart = async () => {
+    if (hasExistingConsent) {
+      // Already consented, just proceed
+      onStart();
+      return;
+    }
     if (!lgpdConsent) return;
     try {
       await consentMutation.mutateAsync({ version: "1.0" });
@@ -36,7 +49,6 @@ export default function Welcome({ onStart }: WelcomeProps) {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Hero */}
       <div className="flex-1 flex flex-col items-center justify-center px-4 py-12">
         <div className="max-w-2xl mx-auto text-center space-y-6">
           <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/10 text-primary text-sm font-medium">
@@ -87,13 +99,33 @@ export default function Welcome({ onStart }: WelcomeProps) {
                 Entrar para começar
                 <ArrowRight className="w-4 h-4" />
               </Button>
+            ) : hasProgress ? (
+              <>
+                <div className="p-4 rounded-lg bg-primary/5 border border-primary/20">
+                  <p className="text-sm text-foreground font-medium">
+                    Você tem uma avaliação em andamento.
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Suas respostas foram salvas automaticamente.
+                  </p>
+                </div>
+                <Button
+                  size="lg"
+                  className="w-full gap-2"
+                  onClick={handleStart}
+                >
+                  Continuar avaliação
+                  <ArrowRight className="w-4 h-4" />
+                </Button>
+              </>
             ) : (
               <>
                 <div className="flex items-start gap-3 text-left p-4 rounded-lg bg-muted/50 border border-border">
                   <Checkbox
                     id="lgpd"
-                    checked={lgpdConsent}
+                    checked={hasExistingConsent || lgpdConsent}
                     onCheckedChange={(checked) => setLgpdConsent(checked === true)}
+                    disabled={hasExistingConsent}
                     className="mt-0.5"
                   />
                   <label htmlFor="lgpd" className="text-sm text-muted-foreground leading-relaxed cursor-pointer">
@@ -107,7 +139,7 @@ export default function Welcome({ onStart }: WelcomeProps) {
                 <Button
                   size="lg"
                   className="w-full gap-2"
-                  disabled={!lgpdConsent || consentMutation.isPending}
+                  disabled={!hasExistingConsent && !lgpdConsent || consentMutation.isPending}
                   onClick={handleStart}
                 >
                   {consentMutation.isPending ? "Salvando..." : "Iniciar avaliação"}

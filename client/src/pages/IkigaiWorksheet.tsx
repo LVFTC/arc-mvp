@@ -1,11 +1,11 @@
-import { useState, useMemo } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { IKIGAI_CIRCLES, IKIGAI_ZONES } from "@shared/questionBank";
 import type { IkigaiCircleKey, IkigaiZoneKey } from "@shared/questionBank";
 import { trpc } from "@/lib/trpc";
-import { ArrowLeft, ArrowRight, Save, Plus, X, GripVertical, ChevronUp, ChevronDown } from "lucide-react";
+import { ArrowLeft, ArrowRight, Save, Plus, X, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 
 interface IkigaiWorksheetProps {
@@ -30,16 +30,19 @@ export default function IkigaiWorksheet({ onNext, onPrev }: IkigaiWorksheetProps
   });
   const [chosenZone, setChosenZone] = useState<IkigaiZoneKey | null>(null);
   const [showZoneSelection, setShowZoneSelection] = useState(false);
+  const loadedIkigaiRef = useRef(false);
+  const loadedChoicesRef = useRef(false);
 
   const saveIkigaiMutation = trpc.ikigai.save.useMutation();
   const saveChoicesMutation = trpc.choices.save.useMutation();
 
   // Load existing data
-  const { data: existingIkigai } = trpc.ikigai.get.useQuery();
+  const { data: existingIkigai, isLoading: ikigaiLoading } = trpc.ikigai.get.useQuery();
   const { data: existingChoices } = trpc.choices.get.useQuery();
 
-  useMemo(() => {
-    if (existingIkigai && existingIkigai.length > 0) {
+  useEffect(() => {
+    if (existingIkigai && existingIkigai.length > 0 && !loadedIkigaiRef.current) {
+      loadedIkigaiRef.current = true;
       const loaded: CircleData = { love: [], good_at: [], world_needs: [], paid_for: [] };
       existingIkigai.forEach((item) => {
         const circle = item.circle as IkigaiCircleKey;
@@ -47,19 +50,19 @@ export default function IkigaiWorksheet({ onNext, onPrev }: IkigaiWorksheetProps
           loaded[circle].push({ text: item.text, rank: item.rank });
         }
       });
-      // Sort by rank
       Object.keys(loaded).forEach((k) => {
         loaded[k as IkigaiCircleKey].sort((a, b) => a.rank - b.rank);
       });
       const hasData = Object.values(loaded).some((arr) => arr.length > 0);
-      if (hasData && Object.values(circleData).every((arr) => arr.length === 0)) {
+      if (hasData) {
         setCircleData(loaded);
       }
     }
   }, [existingIkigai]);
 
-  useMemo(() => {
-    if (existingChoices && existingChoices.chosenZone && !chosenZone) {
+  useEffect(() => {
+    if (existingChoices && existingChoices.chosenZone && !loadedChoicesRef.current) {
+      loadedChoicesRef.current = true;
       setChosenZone(existingChoices.chosenZone as IkigaiZoneKey);
     }
   }, [existingChoices]);
@@ -81,7 +84,6 @@ export default function IkigaiWorksheet({ onNext, onPrev }: IkigaiWorksheetProps
   const removeItem = (idx: number) => {
     setCircleData((prev) => {
       const updated = prev[currentCircle.key].filter((_, i) => i !== idx);
-      // Re-rank
       return {
         ...prev,
         [currentCircle.key]: updated.map((item, i) => ({ ...item, rank: i + 1 })),
@@ -157,6 +159,14 @@ export default function IkigaiWorksheet({ onNext, onPrev }: IkigaiWorksheetProps
       toast.error("Erro ao salvar. Tente novamente.");
     }
   };
+
+  if (ikigaiLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <div className="animate-pulse text-muted-foreground">Carregando dados...</div>
+      </div>
+    );
+  }
 
   // Zone selection view
   if (showZoneSelection) {

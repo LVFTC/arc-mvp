@@ -14,6 +14,7 @@ import {
   getUserChoices,
   createAuditLog,
   getFullAssessment,
+  getAssessmentStatus,
   updateUserLgpdConsent,
 } from "./db";
 
@@ -44,6 +45,7 @@ export const appRouter = router({
   likert: router({
     save: protectedProcedure
       .input(z.object({
+        section: z.enum(["core", "bigfive"]),
         items: z.array(z.object({
           dimension: z.string(),
           itemId: z.string(),
@@ -52,8 +54,8 @@ export const appRouter = router({
         })),
       }))
       .mutation(async ({ ctx, input }) => {
-        await saveLikertResponses(ctx.user.id, input.items);
-        await createAuditLog(ctx.user.id, "likert_saved", { count: input.items.length });
+        await saveLikertResponses(ctx.user.id, input.items, input.section);
+        await createAuditLog(ctx.user.id, "likert_saved", { section: input.section, count: input.items.length });
         return { success: true };
       }),
 
@@ -133,6 +135,10 @@ export const appRouter = router({
   assessment: router({
     getFull: protectedProcedure.query(async ({ ctx }) => {
       return getFullAssessment(ctx.user.id);
+    }),
+
+    status: protectedProcedure.query(async ({ ctx }) => {
+      return getAssessmentStatus(ctx.user.id);
     }),
 
     submit: protectedProcedure.mutation(async ({ ctx }) => {

@@ -10,7 +10,6 @@ import {
   DIMENSIONS,
   IKIGAI_CIRCLES,
   IKIGAI_ZONES,
-  LIKERT_SCALE,
 } from "@shared/questionBank";
 import { ArrowLeft, Send, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -22,8 +21,12 @@ interface ReviewProps {
 }
 
 export default function Review({ onSubmit, onPrev, onGoToStep }: ReviewProps) {
-  const { data: assessment, isLoading } = trpc.assessment.getFull.useQuery();
+  const { data: assessment, isLoading: assessmentLoading } = trpc.assessment.getFull.useQuery();
+  const { data: status, isLoading: statusLoading } = trpc.assessment.status.useQuery();
   const submitMutation = trpc.assessment.submit.useMutation();
+  const utils = trpc.useUtils();
+
+  const isLoading = assessmentLoading || statusLoading;
 
   if (isLoading) {
     return (
@@ -102,6 +105,7 @@ export default function Review({ onSubmit, onPrev, onGoToStep }: ReviewProps) {
   const handleSubmit = async () => {
     try {
       await submitMutation.mutateAsync();
+      await utils.assessment.status.invalidate();
       toast.success("Avaliação submetida com sucesso!");
       onSubmit();
     } catch {
@@ -109,11 +113,13 @@ export default function Review({ onSubmit, onPrev, onGoToStep }: ReviewProps) {
     }
   };
 
-  const coreComplete = dimensionScores.every((d) => d.answered === d.total);
-  const evidenceComplete = CORE_EVIDENCE_PROMPTS.every((p) => evidenceMap.has(p.id));
-  const bigFiveComplete = bigFiveScores.every((t) => t.answered === t.total);
-  const ikigaiComplete = ikigaiByCircle.every((c) => c.items.length >= 3);
-  const allComplete = coreComplete && evidenceComplete && bigFiveComplete && ikigaiComplete && choices?.chosenZone;
+  // Use backend status for completion checks
+  const allComplete = status?.allComplete === true;
+  const coreComplete = status?.sections?.core_likert?.complete === true;
+  const evidenceComplete = status?.sections?.core_evidence?.complete === true;
+  const bigFiveComplete = status?.sections?.bigfive?.complete === true;
+  const ikigaiComplete = status?.sections?.ikigai?.complete === true;
+  const zoneComplete = status?.sections?.zone?.complete === true;
 
   return (
     <div className="space-y-6">
@@ -135,7 +141,14 @@ export default function Review({ onSubmit, onPrev, onGoToStep }: ReviewProps) {
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-semibold">Agilidades (CORE)</CardTitle>
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              {coreComplete ? (
+                <CheckCircle2 className="w-4 h-4 text-green-600" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-amber-500" />
+              )}
+              Agilidades (CORE)
+            </CardTitle>
             {!coreComplete && (
               <Button variant="ghost" size="sm" className="text-xs text-amber-600" onClick={() => onGoToStep("core_likert")}>
                 Completar
@@ -162,7 +175,14 @@ export default function Review({ onSubmit, onPrev, onGoToStep }: ReviewProps) {
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-semibold">Evidências</CardTitle>
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              {evidenceComplete ? (
+                <CheckCircle2 className="w-4 h-4 text-green-600" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-amber-500" />
+              )}
+              Evidências
+            </CardTitle>
             {!evidenceComplete && (
               <Button variant="ghost" size="sm" className="text-xs text-amber-600" onClick={() => onGoToStep("core_evidence")}>
                 Completar
@@ -199,7 +219,14 @@ export default function Review({ onSubmit, onPrev, onGoToStep }: ReviewProps) {
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-semibold">Personalidade (Big Five)</CardTitle>
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              {bigFiveComplete ? (
+                <CheckCircle2 className="w-4 h-4 text-green-600" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-amber-500" />
+              )}
+              Personalidade (Big Five)
+            </CardTitle>
             {!bigFiveComplete && (
               <Button variant="ghost" size="sm" className="text-xs text-amber-600" onClick={() => onGoToStep("bigfive")}>
                 Completar
@@ -226,8 +253,15 @@ export default function Review({ onSubmit, onPrev, onGoToStep }: ReviewProps) {
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-sm font-semibold">IKIGAI</CardTitle>
-            {!ikigaiComplete && (
+            <CardTitle className="text-sm font-semibold flex items-center gap-2">
+              {ikigaiComplete && zoneComplete ? (
+                <CheckCircle2 className="w-4 h-4 text-green-600" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-amber-500" />
+              )}
+              IKIGAI
+            </CardTitle>
+            {(!ikigaiComplete || !zoneComplete) && (
               <Button variant="ghost" size="sm" className="text-xs text-amber-600" onClick={() => onGoToStep("ikigai")}>
                 Completar
               </Button>

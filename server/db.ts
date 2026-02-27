@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, like } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
   InsertUser, users,
@@ -10,6 +10,14 @@ import {
   tags,
 } from "../drizzle/schema";
 import { ENV } from './_core/env';
+import {
+  CORE_LIKERT_ITEMS,
+  CORE_EVIDENCE_PROMPTS,
+  BIG_FIVE_ITEMS,
+  DIMENSIONS,
+  BIG_FIVE_TRAITS,
+  IKIGAI_CIRCLES,
+} from "../shared/questionBank";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -109,13 +117,38 @@ export async function updateUserLgpdConsent(userId: number, version: string) {
 // ─── LGPD: All queries below enforce userId filtering ──────────
 
 // ─── Likert Responses ──────────────────────────────────────────
+// FIX: save by section (core vs bigfive) to avoid deleting cross-section data
 
-export async function saveLikertResponses(userId: number, items: Omit<InsertResponseLikert, "userId">[]) {
+export async function saveLikertResponses(
+  userId: number,
+  items: Omit<InsertResponseLikert, "userId">[],
+  section: "core" | "bigfive"
+) {
   const db = await getDb();
   if (!db) return;
 
-  // Delete existing responses for this user first (upsert pattern)
-  await db.delete(responsesLikert).where(eq(responsesLikert.userId, userId));
+  // Determine which itemIds belong to this section
+  const sectionItemIds = section === "core"
+    ? CORE_LIKERT_ITEMS.map(i => i.id)
+    : BIG_FIVE_ITEMS.map(i => i.id);
+
+  // Delete only items from this section for this user
+  const existing = await db.select({ id: responsesLikert.id, itemId: responsesLikert.itemId })
+    .from(responsesLikert)
+    .where(eq(responsesLikert.userId, userId));
+
+  const idsToDelete = existing
+    .filter(row => sectionItemIds.includes(row.itemId))
+    .map(row => row.id);
+
+  if (idsToDelete.length > 0) {
+    // Delete in batches to avoid query limits
+    for (const id of idsToDelete) {
+      await db.delete(responsesLikert).where(
+        and(eq(responsesLikert.id, id), eq(responsesLikert.userId, userId))
+      );
+    }
+  }
 
   if (items.length === 0) return;
 
@@ -229,4 +262,80 @@ export async function getFullAssessment(userId: number) {
   ]);
 
   return { likert, evidence, ikigai, choices };
+}
+
+// ─── Assessment Status (for resume session) ────────────────────
+
+export async function getAssessmentStatus(userId: number) {
+  const [likert, evidence, ikigai, choices, user] = await Promise.all([
+    getLikertResponses(userId),
+    getEvidenceResponses(userId),
+    getIkigaiItems(userId),
+    getUserChoices(userId),
+    getDb().then(db => db ? db.select().from(users).where(eq(users.id, userId)).limit(1) : []),
+  ]);
+
+  // Count CORE likert items (exclude bigfive)
+  const coreItemIds = new Set(CORE_LIKERT_ITEMS.map(i => i.id));
+  const bigFiveItemIds = new Set(BIG_FIVE_ITEMS.map(i => i.id));
+
+  const coreLikertCount = likert.filter(r => coreItemIds.has(r.itemId)).length;
+  const bigFiveCount = likert.filter(r => bigFiveItemIds.has(r.itemId)).length;
+  const evidenceCount = evidence.length;
+  const ikigaiCount = ikigai.length;
+
+  const coreLikertTotal = CORE_LIKERT_ITEMS.length;
+  const bigFiveTotal = BIG_FIVE_ITEMS.length;
+  const evidenceTotal = CORE_EVIDENCE_PROMPTS.length;
+
+  // IKIGAI: need at least 3 per circle (4 circles)
+  const ikigaiByCircle = IKIGAI_CIRCLES.map(c => ({
+    circle: c.key,
+    count: ikigai.filter(i => i.circle === c.key).length,
+    min: 3,
+  }));
+  const ikigaiComplete = ikigaiByCircle.every(c => c.count >= c.min);
+
+  const hasLgpdConsent = !!(user[0]?.lgpdConsentAt);
+  const assessmentStatus = choices?.assessmentStatus || null;
+
+  const sections = {
+    lgpd: { complete: hasLgpdConsent },
+    core_likert: { answered: coreLikertCount, total: coreLikertTotal, complete: coreLikertCount >= coreLikertTotal },
+    core_evidence: { answered: evidenceCount, total: evidenceTotal, complete: evidenceCount >= evidenceTotal },
+    bigfive: { answered: bigFiveCount, total: bigFiveTotal, complete: bigFiveCount >= bigFiveTotal },
+    ikigai: { circles: ikigaiByCircle, complete: ikigaiComplete },
+    zone: { chosen: choices?.chosenZone || null, complete: !!choices?.chosenZone },
+  };
+
+  // Determine resume step
+  let resumeStep: string = "welcome";
+  if (!hasLgpdConsent) {
+    resumeStep = "welcome";
+  } else if (!sections.core_likert.complete) {
+    resumeStep = "core_likert";
+  } else if (!sections.core_evidence.complete) {
+    resumeStep = "core_evidence";
+  } else if (!sections.bigfive.complete) {
+    resumeStep = "bigfive";
+  } else if (!sections.ikigai.complete || !sections.zone.complete) {
+    resumeStep = "ikigai";
+  } else {
+    resumeStep = "review";
+  }
+
+  if (assessmentStatus === "completed") {
+    resumeStep = "submitted";
+  }
+
+  return {
+    sections,
+    resumeStep,
+    assessmentStatus,
+    allComplete: sections.core_likert.complete &&
+      sections.core_evidence.complete &&
+      sections.bigfive.complete &&
+      sections.ikigai.complete &&
+      sections.zone.complete,
+  };
 }
