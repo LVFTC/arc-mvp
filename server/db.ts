@@ -1,11 +1,18 @@
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import {
+  InsertUser, users,
+  responsesLikert, InsertResponseLikert,
+  responsesEvidence, InsertResponseEvidence,
+  ikigaiItems, InsertIkigaiItem,
+  userChoices, InsertUserChoice,
+  auditLogs, InsertAuditLog,
+  tags,
+} from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
-// Lazily create the drizzle instance so local tooling can run without a DB.
 export async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
     try {
@@ -17,6 +24,8 @@ export async function getDb() {
   }
   return _db;
 }
+
+// ─── User Helpers ──────────────────────────────────────────────
 
 export async function upsertUser(user: InsertUser): Promise<void> {
   if (!user.openId) {
@@ -85,8 +94,139 @@ export async function getUserByOpenId(openId: string) {
   }
 
   const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
-
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+export async function updateUserLgpdConsent(userId: number, version: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set({
+    lgpdConsentAt: new Date(),
+    lgpdConsentVersion: version,
+  }).where(eq(users.id, userId));
+}
+
+// ─── LGPD: All queries below enforce userId filtering ──────────
+
+// ─── Likert Responses ──────────────────────────────────────────
+
+export async function saveLikertResponses(userId: number, items: Omit<InsertResponseLikert, "userId">[]) {
+  const db = await getDb();
+  if (!db) return;
+
+  // Delete existing responses for this user first (upsert pattern)
+  await db.delete(responsesLikert).where(eq(responsesLikert.userId, userId));
+
+  if (items.length === 0) return;
+
+  const rows = items.map(item => ({
+    ...item,
+    userId,
+  }));
+  await db.insert(responsesLikert).values(rows);
+}
+
+export async function getLikertResponses(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(responsesLikert).where(eq(responsesLikert.userId, userId));
+}
+
+// ─── Evidence Responses ────────────────────────────────────────
+
+export async function saveEvidenceResponses(userId: number, items: Omit<InsertResponseEvidence, "userId">[]) {
+  const db = await getDb();
+  if (!db) return;
+
+  await db.delete(responsesEvidence).where(eq(responsesEvidence.userId, userId));
+
+  if (items.length === 0) return;
+
+  const rows = items.map(item => ({
+    ...item,
+    userId,
+  }));
+  await db.insert(responsesEvidence).values(rows);
+}
+
+export async function getEvidenceResponses(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(responsesEvidence).where(eq(responsesEvidence.userId, userId));
+}
+
+// ─── IKIGAI Items ──────────────────────────────────────────────
+
+export async function saveIkigaiItems(userId: number, items: Omit<InsertIkigaiItem, "userId">[]) {
+  const db = await getDb();
+  if (!db) return;
+
+  await db.delete(ikigaiItems).where(eq(ikigaiItems.userId, userId));
+
+  if (items.length === 0) return;
+
+  const rows = items.map(item => ({
+    ...item,
+    userId,
+  }));
+  await db.insert(ikigaiItems).values(rows);
+}
+
+export async function getIkigaiItems(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(ikigaiItems).where(eq(ikigaiItems.userId, userId));
+}
+
+// ─── User Choices ──────────────────────────────────────────────
+
+export async function saveUserChoices(userId: number, data: Partial<Omit<InsertUserChoice, "userId">>) {
+  const db = await getDb();
+  if (!db) return;
+
+  const existing = await db.select().from(userChoices).where(eq(userChoices.userId, userId)).limit(1);
+
+  if (existing.length > 0) {
+    await db.update(userChoices).set(data).where(eq(userChoices.userId, userId));
+  } else {
+    await db.insert(userChoices).values({ userId, ...data });
+  }
+}
+
+export async function getUserChoices(userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(userChoices).where(eq(userChoices.userId, userId)).limit(1);
+  return result.length > 0 ? result[0] : null;
+}
+
+// ─── Audit Logs ────────────────────────────────────────────────
+
+export async function createAuditLog(userId: number, eventType: string, payload?: unknown) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(auditLogs).values({
+    userId,
+    eventType,
+    payload: payload ?? null,
+  });
+}
+
+export async function getAuditLogs(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(auditLogs).where(eq(auditLogs.userId, userId));
+}
+
+// ─── Full Assessment Data (for Review page) ────────────────────
+
+export async function getFullAssessment(userId: number) {
+  const [likert, evidence, ikigai, choices] = await Promise.all([
+    getLikertResponses(userId),
+    getEvidenceResponses(userId),
+    getIkigaiItems(userId),
+    getUserChoices(userId),
+  ]);
+
+  return { likert, evidence, ikigai, choices };
+}

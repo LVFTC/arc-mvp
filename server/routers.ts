@@ -1,28 +1,149 @@
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { z } from "zod";
+import {
+  saveLikertResponses,
+  getLikertResponses,
+  saveEvidenceResponses,
+  getEvidenceResponses,
+  saveIkigaiItems,
+  getIkigaiItems,
+  saveUserChoices,
+  getUserChoices,
+  createAuditLog,
+  getFullAssessment,
+  updateUserLgpdConsent,
+} from "./db";
 
 export const appRouter = router({
-    // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
   system: systemRouter,
+
   auth: router({
     me: publicProcedure.query(opts => opts.ctx.user),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
-      return {
-        success: true,
-      } as const;
+      return { success: true } as const;
     }),
   }),
 
-  // TODO: add feature routers here, e.g.
-  // todo: router({
-  //   list: protectedProcedure.query(({ ctx }) =>
-  //     db.getUserTodos(ctx.user.id)
-  //   ),
-  // }),
+  // ─── LGPD Consent ─────────────────────────────────────────
+  lgpd: router({
+    consent: protectedProcedure
+      .input(z.object({ version: z.string() }))
+      .mutation(async ({ ctx, input }) => {
+        await updateUserLgpdConsent(ctx.user.id, input.version);
+        await createAuditLog(ctx.user.id, "lgpd_consent", { version: input.version });
+        return { success: true };
+      }),
+  }),
+
+  // ─── CORE: Likert Responses ───────────────────────────────
+  likert: router({
+    save: protectedProcedure
+      .input(z.object({
+        items: z.array(z.object({
+          dimension: z.string(),
+          itemId: z.string(),
+          value: z.number().min(1).max(5),
+          reverseFlag: z.boolean(),
+        })),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await saveLikertResponses(ctx.user.id, input.items);
+        await createAuditLog(ctx.user.id, "likert_saved", { count: input.items.length });
+        return { success: true };
+      }),
+
+    get: protectedProcedure.query(async ({ ctx }) => {
+      return getLikertResponses(ctx.user.id);
+    }),
+  }),
+
+  // ─── CORE: Evidence Responses ─────────────────────────────
+  evidence: router({
+    save: protectedProcedure
+      .input(z.object({
+        items: z.array(z.object({
+          dimension: z.string(),
+          promptId: z.string(),
+          text: z.string(),
+        })),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await saveEvidenceResponses(ctx.user.id, input.items);
+        await createAuditLog(ctx.user.id, "evidence_saved", { count: input.items.length });
+        return { success: true };
+      }),
+
+    get: protectedProcedure.query(async ({ ctx }) => {
+      return getEvidenceResponses(ctx.user.id);
+    }),
+  }),
+
+  // ─── IKIGAI Items ─────────────────────────────────────────
+  ikigai: router({
+    save: protectedProcedure
+      .input(z.object({
+        items: z.array(z.object({
+          circle: z.enum(["love", "good_at", "world_needs", "paid_for"]),
+          text: z.string(),
+          rank: z.number().min(1).max(5),
+        })),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        await saveIkigaiItems(ctx.user.id, input.items);
+        await createAuditLog(ctx.user.id, "ikigai_saved", { count: input.items.length });
+        return { success: true };
+      }),
+
+    get: protectedProcedure.query(async ({ ctx }) => {
+      return getIkigaiItems(ctx.user.id);
+    }),
+  }),
+
+  // ─── User Choices (zone + focus) ──────────────────────────
+  choices: router({
+    save: protectedProcedure
+      .input(z.object({
+        chosenZone: z.enum(["passion", "profession", "mission", "vocation"]).nullable().optional(),
+        chosenFocus: z.string().nullable().optional(),
+        assessmentStatus: z.enum(["in_progress", "completed"]).optional(),
+      }))
+      .mutation(async ({ ctx, input }) => {
+        const data: Record<string, unknown> = {};
+        if (input.chosenZone !== undefined) data.chosenZone = input.chosenZone;
+        if (input.chosenFocus !== undefined) data.chosenFocus = input.chosenFocus;
+        if (input.assessmentStatus !== undefined) data.assessmentStatus = input.assessmentStatus;
+        if (input.assessmentStatus === "completed") data.completedAt = new Date();
+
+        await saveUserChoices(ctx.user.id, data);
+        await createAuditLog(ctx.user.id, "choices_saved", input);
+        return { success: true };
+      }),
+
+    get: protectedProcedure.query(async ({ ctx }) => {
+      return getUserChoices(ctx.user.id);
+    }),
+  }),
+
+  // ─── Full Assessment (for Review page) ────────────────────
+  assessment: router({
+    getFull: protectedProcedure.query(async ({ ctx }) => {
+      return getFullAssessment(ctx.user.id);
+    }),
+
+    submit: protectedProcedure.mutation(async ({ ctx }) => {
+      await saveUserChoices(ctx.user.id, {
+        assessmentStatus: "completed",
+        completedAt: new Date(),
+      });
+      await createAuditLog(ctx.user.id, "assessment_submitted", {});
+      return { success: true };
+    }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;
