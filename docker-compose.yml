@@ -1,0 +1,61 @@
+version: "3.9"
+
+services:
+
+  # ── MySQL ──────────────────────────────────────────────────────────────────
+  db:
+    image: mysql:8.2
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: arc_root
+      MYSQL_DATABASE: arc_mvp
+      MYSQL_USER: arc
+      MYSQL_PASSWORD: arc_dev
+    ports:
+      - "3306:3306"
+    volumes:
+      - db_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "arc", "--password=arc_dev"]
+      interval: 10s
+      retries: 5
+
+  # ── PDF Microservice (Python / WeasyPrint) ─────────────────────────────────
+  pdf-service:
+    build:
+      context: ./pdf-service
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    environment:
+      - PYTHONUNBUFFERED=1
+    ports:
+      - "8001:8001"   # internal only in prod; exposed here for local testing
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 15s
+      retries: 3
+
+  # ── Node / Express + tRPC ──────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile          # your existing Node Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      pdf-service:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: "mysql://arc:arc_dev@db:3306/arc_mvp"
+      PDF_SERVICE_URL: "http://pdf-service:8001"
+      SESSION_SECRET: "change-me-in-prod"
+      NODE_ENV: development
+    ports:
+      - "3000:3000"
+    volumes:
+      - .:/app
+      - /app/node_modules
+
+volumes:
+  db_data:
