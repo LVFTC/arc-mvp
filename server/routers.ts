@@ -22,8 +22,7 @@ import {
   deleteUserData,
 } from "./db";
 import { buildReportPayload } from "./reportBuilder";
-import { callPdfService } from "./pdfClient";
-
+import { callPdfService, checkPdfServiceHealth, PdfServiceOfflineError, PdfServiceTimeoutError, PdfRenderError } from "./pdfClient";
 export const appRouter = router({
   system: systemRouter,
 
@@ -170,9 +169,22 @@ export const appRouter = router({
   }),
 
   // ─── PDF Report ─────────────────────────────────────────────────────
+  // ─── PDF Report ─────────────────────────────────────────────────────
   report: router({
+
+    health: protectedProcedure.query(async () => {
+      return checkPdfServiceHealth();
+    }),
+
     generate: protectedProcedure.mutation(async ({ ctx }) => {
-      // Security headers: no caching, no MIME sniffing
+      const health = await checkPdfServiceHealth();
+      if (!health.ok) {
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `PDF service indisponível: ${health.reason}`,
+        });
+      }
+
       ctx.res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
       ctx.res.setHeader("X-Content-Type-Options", "nosniff");
       ctx.res.setHeader("Pragma", "no-cache");
@@ -185,15 +197,28 @@ export const appRouter = router({
       }
 
       const payload = await buildReportPayload(ctx.user.id, assessment);
-      const pdfBuffer = await callPdfService(payload);
 
-      await createAuditLog(ctx.user.id, "pdf_generated", { size: pdfBuffer.length });
-
-      return {
-        success: true,
-        pdfBase64: pdfBuffer.toString("base64"),
-        filename: `arc-relatorio-${ctx.user.id}-${Date.now()}.pdf`,
-      };
+      try {
+        const pdfBuffer = await callPdfService(payload);
+        await createAuditLog(ctx.user.id, "pdf_generated", { size: pdfBuffer.length });
+        return {
+          success: true,
+          pdfBase64: pdfBuffer.toString("base64"),
+          filename: `arc-relatorio-${ctx.user.id}-${Date.now()}.pdf`,
+        };
+      } catch (err) {
+        console.error("[report.generate] PDF service error:", err);
+        if (err instanceof PdfServiceOfflineError) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Serviço de PDF offline. Tente novamente em instantes." });
+        }
+        if (err instanceof PdfServiceTimeoutError) {
+          throw new TRPCError({ code: "TIMEOUT", message: "Geração de PDF demorou demais. Tente novamente." });
+        }
+        if (err instanceof PdfRenderError) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Erro ao renderizar PDF (${err.status}): ${err.detail}` });
+        }
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Erro inesperado ao gerar PDF. Tente novamente." });
+      }
     }),
   }),
 

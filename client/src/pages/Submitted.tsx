@@ -16,6 +16,7 @@ import {
   AlertCircle,
   Download,
   Loader2,
+  WifiOff,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -30,9 +31,20 @@ export default function Submitted({ onRestart }: SubmittedProps) {
   const { data: plan } = trpc.plan90d.get.useQuery();
   const [pdfGenerating, setPdfGenerating] = useState(false);
 
+  // ── PDF service healthcheck ──────────────────────────────────────────────
+  const { data: pdfHealth, isLoading: healthLoading } = trpc.report.health.useQuery(undefined, {
+    // Verificar a cada 30s enquanto a tela está aberta; não fazer refetch agressivo
+    refetchInterval: 30_000,
+    refetchOnWindowFocus: false,
+    retry: 1,
+  });
+
+  const pdfServiceOk = pdfHealth?.ok === true;
+  const pdfServiceReason = pdfHealth && !pdfHealth.ok ? pdfHealth.reason : null;
+  // ────────────────────────────────────────────────────────────────────────
+
   const generatePdf = trpc.report.generate.useMutation({
     onSuccess: (data) => {
-      // Decode base64 and trigger download
       const bytes = Uint8Array.from(atob(data.pdfBase64), c => c.charCodeAt(0));
       const blob = new Blob([bytes], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
@@ -52,7 +64,6 @@ export default function Submitted({ onRestart }: SubmittedProps) {
 
   const isLoading = statusLoading || assessmentLoading;
 
-  // Build Big Five answers map
   const bigFiveAnswers: Record<string, number> = {};
   assessment?.likert?.forEach(r => { bigFiveAnswers[r.itemId] = r.value; });
 
@@ -81,7 +92,7 @@ export default function Submitted({ onRestart }: SubmittedProps) {
       icon: <FileText className="w-4 h-4" />,
       complete: status?.sections?.core_evidence?.complete,
       detail: status?.sections?.core_evidence
-        ? `${status.sections.core_evidence.answered}/${status.sections.core_evidence.total} respostas`
+        ? `${status.sections.core_evidence.answered}/${status.sections.core_evidence.total} itens`
         : null,
     },
     {
@@ -98,118 +109,93 @@ export default function Submitted({ onRestart }: SubmittedProps) {
       label: "IKIGAI",
       icon: <Heart className="w-4 h-4" />,
       complete: status?.sections?.ikigai?.complete,
-      detail: status?.sections?.ikigai?.circles
-        ? `${status.sections.ikigai.circles.reduce((a: number, c: { count: number }) => a + c.count, 0)} itens`
+      detail: status?.sections?.ikigai
+        ? `${status.sections.ikigai.answered}/${status.sections.ikigai.total} círculos`
         : null,
     },
     {
-      key: "zone",
-      label: "Zona IKIGAI",
+      key: "choices",
+      label: "Zona & Hipótese",
       icon: <Target className="w-4 h-4" />,
-      complete: status?.sections?.zone?.complete,
-      detail: zoneInfo?.label || null,
+      complete: status?.sections?.choices?.complete,
+      detail: chosenZone ?? null,
     },
   ];
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="animate-pulse text-muted-foreground">Carregando dashboard...</div>
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
       </div>
     );
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <Card className="border-0 shadow-sm bg-gradient-to-br from-primary/5 to-primary/10">
-        <CardContent className="pt-6 pb-6">
-          <div className="flex items-start gap-4">
-            <div className="w-12 h-12 rounded-full bg-green-100 flex items-center justify-center shrink-0">
-              <CheckCircle2 className="w-6 h-6 text-green-600" />
-            </div>
-            <div className="space-y-1">
-              <h2 className="text-xl font-bold text-foreground">Avaliação concluída</h2>
-              {completedAt && (
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  <Clock className="w-3 h-3" />
-                  Submetida em {completedAt}
-                </p>
-              )}
-              {plan?.cycleObjective && (
-                <div className="mt-2 p-2.5 rounded-md bg-primary/10 border border-primary/20">
-                  <p className="text-xs font-medium text-primary">Objetivo do ciclo</p>
-                  <p className="text-sm text-foreground mt-0.5">{plan.cycleObjective}</p>
-                </div>
-              )}
-            </div>
+    <div className="space-y-5 max-w-2xl mx-auto px-4 py-6">
+
+      {/* Hero */}
+      <div className="text-center space-y-2">
+        <div className="flex justify-center">
+          <div className="w-14 h-14 rounded-full bg-green-50 flex items-center justify-center">
+            <CheckCircle2 className="w-7 h-7 text-green-500" />
           </div>
-        </CardContent>
-      </Card>
+        </div>
+        <h1 className="text-2xl font-bold tracking-tight">Avaliação concluída</h1>
+        {completedAt && (
+          <p className="text-sm text-muted-foreground flex items-center justify-center gap-1.5">
+            <Clock className="w-3.5 h-3.5" />
+            {completedAt}
+          </p>
+        )}
+      </div>
 
       {/* Status das seções */}
       <Card className="border-0 shadow-sm">
-        <CardHeader className="pb-3">
+        <CardHeader className="pb-2">
           <CardTitle className="text-base">Status das seções</CardTitle>
         </CardHeader>
-        <CardContent>
-          <div className="space-y-2">
-            {sectionList.map(section => (
-              <div key={section.key} className="flex items-center justify-between py-2 border-b border-border last:border-0">
-                <div className="flex items-center gap-2">
-                  <span className={section.complete ? "text-green-600" : "text-amber-500"}>
-                    {section.icon}
-                  </span>
-                  <span className="text-sm font-medium">{section.label}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  {section.detail && (
-                    <span className="text-xs text-muted-foreground">{section.detail}</span>
-                  )}
-                  {section.complete ? (
-                    <CheckCircle2 className="w-4 h-4 text-green-600" />
-                  ) : (
-                    <AlertCircle className="w-4 h-4 text-amber-500" />
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
+        <CardContent className="space-y-2">
+          {sectionList.map(s => (
+            <div key={s.key} className="flex items-center gap-3">
+              <span className={`flex-shrink-0 ${s.complete ? "text-green-500" : "text-amber-400"}`}>
+                {s.complete ? <CheckCircle2 className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
+              </span>
+              <span className="text-muted-foreground">{s.icon}</span>
+              <span className="text-sm font-medium flex-1">{s.label}</span>
+              {s.detail && (
+                <span className="text-xs text-muted-foreground">{s.detail}</span>
+              )}
+            </div>
+          ))}
         </CardContent>
       </Card>
 
-      {/* Zona IKIGAI */}
+      {/* Zona escolhida */}
       {zoneInfo && (
         <Card className="border-0 shadow-sm">
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Target className="w-4 h-4 text-primary" />
-              Zona IKIGAI escolhida
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="p-4 rounded-lg border border-primary/20 bg-primary/5">
-              <p className="text-lg font-bold text-primary">{zoneInfo.label}</p>
-              <p className="text-sm text-muted-foreground mt-1">{zoneInfo.description}</p>
-            </div>
+          <CardContent className="pt-5">
+            <p className="text-xs font-semibold text-primary uppercase tracking-wide mb-1">
+              Zona escolhida
+            </p>
+            <p className="text-sm font-bold">{zoneInfo.label}</p>
+            {zoneInfo.description && (
+              <p className="text-xs text-muted-foreground mt-1">{zoneInfo.description}</p>
+            )}
           </CardContent>
         </Card>
       )}
 
-      {/* Big Five preview */}
+      {/* Big Five */}
       {Object.keys(bigFiveAnswers).length > 0 && (
         <Card className="border-0 shadow-sm">
-          <CardHeader className="pb-3">
+          <CardHeader className="pb-2">
             <CardTitle className="text-base flex items-center gap-2">
               <Brain className="w-4 h-4 text-primary" />
-              Perfil Big Five — visão geral
+              Traços Big Five
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <BigFiveResults answers={bigFiveAnswers} compact />
-            <p className="text-xs text-muted-foreground mt-3 italic">
-              O relatório PDF incluirá análise completa com contextos que favorecem e drenam por traço.
-            </p>
+            <BigFiveResults answers={bigFiveAnswers} />
           </CardContent>
         </Card>
       )}
@@ -258,12 +244,24 @@ export default function Submitted({ onRestart }: SubmittedProps) {
               <p className="text-xs text-muted-foreground mt-0.5">
                 Radar de Agilidades, Big Five, mapa IKIGAI e Plano 90 dias.
               </p>
+
+              {/* Aviso quando pdf_service está offline */}
+              {!healthLoading && !pdfServiceOk && (
+                <p className="text-xs text-amber-600 mt-1.5 flex items-center gap-1">
+                  <WifiOff className="w-3 h-3 flex-shrink-0" />
+                  PDF indisponível no momento
+                  {pdfServiceReason && (
+                    <span className="text-amber-500/70"> — {pdfServiceReason}</span>
+                  )}
+                </p>
+              )}
             </div>
+
             <Button
               variant="default"
               size="sm"
               className="gap-1.5 shrink-0"
-              disabled={pdfGenerating || !status?.allComplete}
+              disabled={pdfGenerating || !status?.allComplete || healthLoading || !pdfServiceOk}
               onClick={() => {
                 setPdfGenerating(true);
                 generatePdf.mutate();
@@ -271,6 +269,8 @@ export default function Submitted({ onRestart }: SubmittedProps) {
             >
               {pdfGenerating ? (
                 <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Gerando...</>
+              ) : healthLoading ? (
+                <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Verificando...</>
               ) : (
                 <><Download className="w-3.5 h-3.5" /> Baixar PDF</>
               )}
