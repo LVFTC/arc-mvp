@@ -2,6 +2,7 @@ import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { publicProcedure, protectedProcedure, router } from "./_core/trpc";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
   saveLikertResponses,
@@ -18,7 +19,10 @@ import {
   updateUserLgpdConsent,
   savePlan90d,
   getPlan90d,
+  deleteUserData,
 } from "./db";
+import { buildReportPayload } from "./reportBuilder";
+import { callPdfService } from "./pdfClient";
 
 export const appRouter = router({
   system: systemRouter,
@@ -156,7 +160,44 @@ export const appRouter = router({
     }),
   }),
 
-  // ─── Full Assessment (for Review page) ────────────────────
+  // ───  // ─── Privacy: DELETE /me/data ────────────────────────
+  privacy: router({
+    deleteMyData: protectedProcedure.mutation(async ({ ctx }) => {
+      await createAuditLog(ctx.user.id, "user_data_deleted", { requestedAt: new Date().toISOString() });
+      await deleteUserData(ctx.user.id);
+      return { success: true };
+    }),
+  }),
+
+  // ─── PDF Report ─────────────────────────────────────────────────────
+  report: router({
+    generate: protectedProcedure.mutation(async ({ ctx }) => {
+      // Security headers: no caching, no MIME sniffing
+      ctx.res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, private");
+      ctx.res.setHeader("X-Content-Type-Options", "nosniff");
+      ctx.res.setHeader("Pragma", "no-cache");
+
+      const assessment = await getFullAssessment(ctx.user.id);
+      const status = await getAssessmentStatus(ctx.user.id);
+
+      if (!status.allComplete) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Assessment not complete — cannot generate PDF" });
+      }
+
+      const payload = await buildReportPayload(ctx.user.id, assessment);
+      const pdfBuffer = await callPdfService(payload);
+
+      await createAuditLog(ctx.user.id, "pdf_generated", { size: pdfBuffer.length });
+
+      return {
+        success: true,
+        pdfBase64: pdfBuffer.toString("base64"),
+        filename: `arc-relatorio-${ctx.user.id}-${Date.now()}.pdf`,
+      };
+    }),
+  }),
+
+   // ─── Full Assessment (for Review page) ────────
   assessment: router({
     getFull: protectedProcedure.query(async ({ ctx }) => {
       return getFullAssessment(ctx.user.id);

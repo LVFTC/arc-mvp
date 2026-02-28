@@ -29,6 +29,13 @@
       "when": 1772218797138,
       "tag": "0003_salty_betty_brant",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1772237087608,
+      "tag": "0004_fair_gateway",
+      "breakpoints": true
     }
   ]
 }

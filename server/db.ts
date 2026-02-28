@@ -368,3 +368,27 @@ export async function getAssessmentStatus(userId: number) {
       sections.zone.complete,
   };
 }
+
+// ─── LGPD: Delete all user data ────────────────────────────────
+
+export async function deleteUserData(userId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  // Delete in order respecting FK constraints
+  await db.delete(auditLogs).where(eq(auditLogs.userId, userId));
+  await db.delete(tags).where(eq(tags.userId, userId));
+  await db.delete(userPlan90d).where(eq(userPlan90d.userId, userId));
+  await db.delete(userChoices).where(eq(userChoices.userId, userId));
+  await db.delete(ikigaiItems).where(eq(ikigaiItems.userId, userId));
+  await db.delete(responsesEvidence).where(eq(responsesEvidence.userId, userId));
+  await db.delete(responsesLikert).where(eq(responsesLikert.userId, userId));
+  // Log the deletion event before deleting the user row (last)
+  // User row itself is kept for audit trail but all PII is cleared
+  await db.update(users).set({
+    name: null,
+    email: null,
+    lgpdConsentAt: null,
+    lgpdConsentVersion: null,
+  }).where(eq(users.id, userId));
+}

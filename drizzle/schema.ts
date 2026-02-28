@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, boolean, json } from "drizzle-orm/mysql-core";
+import { boolean, date, int, json, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
 
 // ─── Core User Table ───────────────────────────────────────────
 export const users = mysqlTable("users", {
@@ -40,6 +40,8 @@ export const responsesEvidence = mysqlTable("responses_evidence", {
   dimension: varchar("dimension", { length: 64 }).notNull(),
   promptId: varchar("promptId", { length: 64 }).notNull(),
   text: text("text").notNull(),
+  /** LGPD: data de retenção — 90 dias após criação por padrão */
+  retentionUntil: date("retentionUntil"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

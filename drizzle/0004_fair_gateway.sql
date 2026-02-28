@@ -1,0 +1,1 @@
+ALTER TABLE `responses_evidence` ADD `retentionUntil` date;

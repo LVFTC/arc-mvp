@@ -14,7 +14,11 @@ import {
   BarChart2,
   Clock,
   AlertCircle,
+  Download,
+  Loader2,
 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 
 interface SubmittedProps {
   onRestart?: () => void;
@@ -24,6 +28,27 @@ export default function Submitted({ onRestart }: SubmittedProps) {
   const { data: status, isLoading: statusLoading } = trpc.assessment.status.useQuery();
   const { data: assessment, isLoading: assessmentLoading } = trpc.assessment.getFull.useQuery();
   const { data: plan } = trpc.plan90d.get.useQuery();
+  const [pdfGenerating, setPdfGenerating] = useState(false);
+
+  const generatePdf = trpc.report.generate.useMutation({
+    onSuccess: (data) => {
+      // Decode base64 and trigger download
+      const bytes = Uint8Array.from(atob(data.pdfBase64), c => c.charCodeAt(0));
+      const blob = new Blob([bytes], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = data.filename;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("Relatório PDF gerado com sucesso!");
+      setPdfGenerating(false);
+    },
+    onError: (err) => {
+      toast.error(`Erro ao gerar PDF: ${err.message}`);
+      setPdfGenerating(false);
+    },
+  });
 
   const isLoading = statusLoading || assessmentLoading;
 
@@ -222,7 +247,7 @@ export default function Submitted({ onRestart }: SubmittedProps) {
       <Separator />
 
       {/* PDF CTA */}
-      <Card className="border border-dashed border-primary/30 shadow-none bg-primary/3">
+      <Card className="border border-primary/30 shadow-sm bg-primary/3">
         <CardContent className="pt-5 pb-5">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
@@ -231,12 +256,24 @@ export default function Submitted({ onRestart }: SubmittedProps) {
             <div className="flex-1">
               <p className="text-sm font-semibold text-foreground">Relatório PDF personalizado</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Disponível na próxima entrega — incluirá Radar de Agilidades, Big Five completo, mapa IKIGAI e Plano 90 dias.
+                Radar de Agilidades, Big Five, mapa IKIGAI e Plano 90 dias.
               </p>
             </div>
-            <Button disabled variant="outline" size="sm" className="gap-1.5 shrink-0">
-              <FileText className="w-3.5 h-3.5" />
-              Em breve
+            <Button
+              variant="default"
+              size="sm"
+              className="gap-1.5 shrink-0"
+              disabled={pdfGenerating || !status?.allComplete}
+              onClick={() => {
+                setPdfGenerating(true);
+                generatePdf.mutate();
+              }}
+            >
+              {pdfGenerating ? (
+                <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Gerando...</>
+              ) : (
+                <><Download className="w-3.5 h-3.5" /> Baixar PDF</>
+              )}
             </Button>
           </div>
         </CardContent>

@@ -67,3 +67,17 @@
 - [x] E2: Integrar Plan90D no fluxo (após IKIGAI, antes do Review)
 - [x] E2: Big Five visual com barras por traço + contextos favorecem/drenam
 - [x] E2: Dashboard pós-submit: status das seções + zona escolhida + botão Gerar PDF
+
+## Entrega 3 (Release/Deploy)
+
+- [x] E3: Pull do main com código Claude (pdf-service + segurança)
+- [x] E3: Instalar dependências Python (WeasyPrint, FastAPI, bleach)
+- [x] E3: Migração DB (retentionUntil)
+- [x] E3: pdf_service Python rodando em :8001 (FileSystemLoader corrigido)
+- [x] E3: server/reportBuilder.ts — mapeia dados do DB para payload do pdf_service
+- [x] E3: server/pdfClient.ts — HTTP client para o pdf_service
+- [x] E3: router report.generate com headers Cache-Control no-store + X-Content-Type-Options nosniff
+- [x] E3: router privacy.deleteMyData (LGPD DELETE /me/data)
+- [x] E3: Botão "Baixar PDF" habilitado no Dashboard (Submitted.tsx)
+- [x] E3: Smoke tests: PDF gerado (61KB), UNAUTHORIZED sem auth (401), DELETE /me/data (401 sem auth)
+- [x] E3: 25 testes vitest passando

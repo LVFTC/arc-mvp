@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<style>
+/* ── Reset & Base ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+@page {
+  size: A4;
+  margin: 18mm 16mm 22mm 16mm;
+  @bottom-center {
+    content: "ARC · " counter(page) " / " counter(pages);
+    font-size: 9pt;
+    color: #94a3b8;
+    font-family: Inter, sans-serif;
+  }
+}
+body {
+  font-family: Inter, "Helvetica Neue", Arial, sans-serif;
+  font-size: 10.5pt;
+  color: #1e293b;
+  line-height: 1.55;
+}
+
+/* ── Typography ── */
+h1 { font-size: 26pt; font-weight: 800; color: #312e81; line-height: 1.15; }
+h2 { font-size: 14pt; font-weight: 700; color: #4338ca; margin-bottom: 6pt; }
+h3 { font-size: 11pt; font-weight: 600; color: #475569; margin-bottom: 4pt; }
+p  { margin-bottom: 6pt; }
+
+/* ── Page breaks ── */
+.page-break { page-break-before: always; }
+.avoid-break { page-break-inside: avoid; }
+
+/* ── Cover ── */
+.cover {
+  height: 245mm;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: linear-gradient(145deg, #eef2ff 0%, #e0e7ff 100%);
+  border-radius: 8pt;
+  padding: 32pt 36pt;
+}
+.cover-label {
+  font-size: 9pt;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: #6366f1;
+  font-weight: 700;
+  margin-bottom: 12pt;
+}
+.cover-sub {
+  font-size: 12pt;
+  color: #64748b;
+  margin-top: 14pt;
+}
+.cover-name {
+  font-size: 15pt;
+  font-weight: 700;
+  color: #4338ca;
+  margin-top: 28pt;
+  padding-top: 16pt;
+  border-top: 2px solid #c7d2fe;
+}
+
+/* ── Section wrappers ── */
+.section { margin-bottom: 18pt; }
+
+/* ── Archetype card ── */
+.archetype-card {
+  background: #f8fafc;
+  border-left: 4pt solid #6366f1;
+  border-radius: 4pt;
+  padding: 12pt 14pt;
+  margin-bottom: 10pt;
+}
+.archetype-name { font-size: 16pt; font-weight: 800; color: #4338ca; }
+.tag-list { display: flex; flex-wrap: wrap; gap: 5pt; margin-top: 8pt; }
+.tag {
+  background: #e0e7ff;
+  color: #3730a3;
+  border-radius: 100pt;
+  padding: 2pt 8pt;
+  font-size: 8.5pt;
+  font-weight: 600;
+}
+.tag.tension {
+  background: #fef3c7;
+  color: #92400e;
+}
+.questions { margin-top: 10pt; }
+.question-item {
+  padding: 6pt 0;
+  border-bottom: 1px dashed #e2e8f0;
+  font-style: italic;
+  color: #475569;
+}
+.question-item:last-child { border-bottom: none; }
+
+/* ── Radar ── */
+.radar-wrap {
+  display: flex;
+  justify-content: center;
+  margin: 6pt 0 10pt;
+}
+
+/* ── Big Five bars ── */
+.bf-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 6pt;
+  gap: 8pt;
+}
+.bf-label { width: 130pt; font-size: 9pt; color: #475569; flex-shrink: 0; }
+.bf-bar-wrap { flex: 1; background: #e2e8f0; border-radius: 100pt; height: 8pt; }
+.bf-bar { height: 8pt; border-radius: 100pt; background: #6366f1; }
+.bf-val { width: 24pt; text-align: right; font-size: 8.5pt; color: #64748b; flex-shrink: 0; }
+
+/* ── Ikigai ── */
+.ikigai-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8pt;
+  margin-bottom: 10pt;
+}
+.ikigai-card {
+  border: 1.5pt solid #e2e8f0;
+  border-radius: 6pt;
+  padding: 10pt;
+}
+.ikigai-card h3 { color: #6366f1; font-size: 10pt; margin-bottom: 5pt; }
+.ikigai-card ol { padding-left: 14pt; }
+.ikigai-card li { font-size: 9.5pt; margin-bottom: 3pt; }
+.zone-badge {
+  display: inline-block;
+  background: #4338ca;
+  color: #fff;
+  font-size: 11pt;
+  font-weight: 700;
+  padding: 6pt 16pt;
+  border-radius: 6pt;
+  margin-top: 8pt;
+}
+
+/* ── Plan 90 days ── */
+.hypothesis-box {
+  background: #f0fdf4;
+  border-left: 4pt solid #22c55e;
+  border-radius: 4pt;
+  padding: 10pt 12pt;
+  margin-bottom: 14pt;
+  font-weight: 600;
+  color: #166534;
+}
+.plan-section-title {
+  font-size: 10pt;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #6366f1;
+  margin: 12pt 0 6pt;
+}
+table.exp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 9.5pt;
+}
+table.exp-table th {
+  background: #f1f5f9;
+  text-align: left;
+  padding: 5pt 7pt;
+  font-weight: 600;
+  color: #475569;
+  border-bottom: 1.5pt solid #e2e8f0;
+}
+table.exp-table td {
+  padding: 5pt 7pt;
+  border-bottom: 1pt solid #f1f5f9;
+  vertical-align: top;
+}
+.people-card {
+  background: #fafafa;
+  border: 1pt solid #e2e8f0;
+  border-radius: 5pt;
+  padding: 8pt 10pt;
+  margin-bottom: 6pt;
+}
+.people-card .profile-name { font-weight: 600; color: #1e293b; }
+.people-card .justification { color: #64748b; font-size: 9pt; margin-top: 2pt; }
+.edu-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6pt; }
+.edu-item {
+  border: 1pt solid #e2e8f0;
+  border-radius: 5pt;
+  padding: 7pt 9pt;
+  font-size: 9.5pt;
+}
+.edu-item .kind { font-size: 8pt; text-transform: uppercase; color: #6366f1; font-weight: 700; }
+
+/* ── Checkpoints ── */
+.checkpoint-row {
+  display: flex;
+  gap: 10pt;
+  align-items: flex-start;
+  margin-bottom: 8pt;
+}
+.checkpoint-week {
+  background: #4338ca;
+  color: #fff;
+  font-weight: 700;
+  font-size: 8.5pt;
+  padding: 3pt 7pt;
+  border-radius: 4pt;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.checkpoint-q { color: #334155; font-style: italic; font-size: 9.5pt; }
+</style>
+</head>
+<body>
+
+{# ── COVER ── #}
+<div class="cover">
+  <div class="cover-label">Sistema de Autoliderança de Carreira</div>
+  <h1>Seu Relatório<br/>ARC</h1>
+  <p class="cover-sub">
+    Este documento reúne suas hipóteses, mapa de agilidades e plano experimental.<br/>
+    Nada aqui é definitivo — tudo é ponto de partida para teste.
+  </p>
+  <div class="cover-name">{{ user_name }}</div>
+</div>
+
+{# ── 1. AGILIDADES ── #}
+<div class="page-break section">
+  <h2>1 · Radar de Agilidades</h2>
+  <div class="radar-wrap">
+    {# radar_svg is server-generated SVG — safe to embed directly #}
+    {{ radar_svg | safe }}
+  </div>
+</div>
+
+{# ── 2. ARQUÉTIPO ── #}
+<div class="section avoid-break">
+  <h2>2 · Arquétipo &amp; Perguntas Provocativas</h2>
+  <div class="archetype-card">
+    <div class="archetype-name">{{ archetype }}</div>
+    <div class="tag-list">
+      {% for s in archetype_strengths %}
+        <span class="tag">{{ s }}</span>
+      {% endfor %}
+      {% for t in archetype_tensions %}
+        <span class="tag tension">⚠ {{ t }}</span>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="questions">
+    <h3>Perguntas para reflexão</h3>
+    {% for q in provocative_questions %}
+      <div class="question-item">→ {{ q }}</div>
+    {% endfor %}
+  </div>
+</div>
+
+{# ── 3. BIG FIVE ── #}
+<div class="section avoid-break">
+  <h2>3 · Traços de Personalidade (Big Five)</h2>
+  {% for bar in big_five_bars %}
+    <div class="bf-row">
+      <span class="bf-label">{{ bar.label }}</span>
+      <div class="bf-bar-wrap">
+        <div class="bf-bar" style="width: {{ bar.pct | round(1) }}%;"></div>
+      </div>
+      <span class="bf-val">{{ bar.value }}/5</span>
+    </div>
+  {% endfor %}
+</div>
+
+{# ── 4. IKIGAI ── #}
+<div class="page-break section">
+  <h2>4 · Mapa Ikigai</h2>
+  <div class="ikigai-grid">
+    <div class="ikigai-card avoid-break">
+      <h3>❤ Amo</h3>
+      <ol>{% for i in ikigai.amo %}<li>{{ i }}</li>{% endfor %}</ol>
+    </div>
+    <div class="ikigai-card avoid-break">
+      <h3>⭐ Sou bom em</h3>
+      <ol>{% for i in ikigai.sou_bom %}<li>{{ i }}</li>{% endfor %}</ol>
+    </div>
+    <div class="ikigai-card avoid-break">
+      <h3>🌍 Mundo precisa</h3>
+      <ol>{% for i in ikigai.mundo_precisa %}<li>{{ i }}</li>{% endfor %}</ol>
+    </div>
+    <div class="ikigai-card avoid-break">
+      <h3>💰 Posso ser pago</h3>
+      <ol>{% for i in ikigai.posso_ser_pago %}<li>{{ i }}</li>{% endfor %}</ol>
+    </div>
+  </div>
+  <div>
+    <strong>Zona de convergência escolhida:</strong>
+    <span class="zone-badge">{{ selected_zone }}</span>
+  </div>
+</div>
+
+{# ── 5. PLANO 90 DIAS ── #}
+<div class="page-break section">
+  <h2>5 · Plano 90 Dias — 70 / 20 / 10</h2>
+  <div class="hypothesis-box">
+    Hipótese escolhida: {{ plan.chosen_hypothesis }}
+  </div>
+
+  {# 70% Experiência #}
+  <div class="plan-section-title">70% — Experiência Prática</div>
+  <table class="exp-table avoid-break">
+    <thead>
+      <tr><th>Semana</th><th>Experimento</th><th>Métrica</th></tr>
+    </thead>
+    <tbody>
+      {% for e in plan.experiencias %}
+        <tr>
+          <td>Sem. {{ e.week }}</td>
+          <td>{{ e.title }}</td>
+          <td>{{ e.metric }}</td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {# 20% Pessoas #}
+  <div class="plan-section-title">20% — Pessoas &amp; Rede</div>
+  {% for p in plan.pessoas %}
+    <div class="people-card avoid-break">
+      <div class="profile-name">{{ p.profile }}</div>
+      <div class="justification">{{ p.justification }}</div>
+    </div>
+  {% endfor %}
+
+  {# 10% Educação #}
+  <div class="plan-section-title">10% — Educação</div>
+  <div class="edu-grid">
+    {% for ed in plan.educacao %}
+      <div class="edu-item avoid-break">
+        <div class="kind">{{ ed.kind }}</div>
+        {{ ed.title }}
+      </div>
+    {% endfor %}
+  </div>
+</div>
+
+{# ── 6. CHECKPOINTS ── #}
+<div class="page-break section">
+  <h2>6 · Checkpoints de Revisão</h2>
+  {% for c in plan.checkpoints %}
+    <div class="checkpoint-row avoid-break">
+      <span class="checkpoint-week">Sem. {{ c.week }}</span>
+      <span class="checkpoint-q">{{ c.question }}</span>
+    </div>
+  {% endfor %}
+</div>
+
+{# ── 7. GUIA AUTOPROGRESSÃO ── #}
+<div class="page-break section avoid-break">
+  <h2>7 · Guia de Autoprogressão</h2>
+  <p>A cada 15 dias, reserve 30 minutos para responder:</p>
+  <div class="question-item">→ O que aconteceu que confirma ou refuta minha hipótese?</div>
+  <div class="question-item">→ O que preciso ajustar no plano?</div>
+  <div class="question-item">→ Quais novas evidências coletei sobre minhas agilidades?</div>
+  <div class="question-item">→ Estou avançando na zona {{ selected_zone }}? O que isso está me ensinando?</div>
+  <p style="margin-top:12pt; color:#64748b; font-size:9pt;">
+    ARC não entrega destinos — entrega clareza para o próximo experimento.
+  </p>
+</div>
+
+</body>
+</html>
