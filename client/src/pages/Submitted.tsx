@@ -18,7 +18,7 @@ import {
   Loader2,
   WifiOff,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { toast } from "sonner";
 
 interface SubmittedProps {
@@ -30,35 +30,72 @@ export default function Submitted({ onRestart }: SubmittedProps) {
   const { data: assessment, isLoading: assessmentLoading } = trpc.assessment.getFull.useQuery();
   const { data: plan } = trpc.plan90d.get.useQuery();
   const [pdfGenerating, setPdfGenerating] = useState(false);
+  const utils = trpc.useUtils();
 
-  // ── PDF service healthcheck ──────────────────────────────────────────────
-  const { data: pdfHealth, isLoading: healthLoading } = trpc.report.health.useQuery(undefined, {
-    // Verificar a cada 30s enquanto a tela está aberta; não fazer refetch agressivo
-    refetchInterval: 30_000,
-    refetchOnWindowFocus: false,
-    retry: 1,
-  });
+  // ── PDF health: poll a cada 15s; não travar na primeira falha ────────────
+  const { data: pdfHealth, isLoading: healthLoading, refetch: refetchHealth } =
+    trpc.report.health.useQuery(undefined, {
+      // Refetch periódico para detectar warmup do pdf_service
+      refetchInterval: 15_000,
+      refetchOnWindowFocus: true,
+      retry: 2,
+      retryDelay: 1000,
+    });
 
   const pdfServiceOk = pdfHealth?.ok === true;
-  const pdfServiceReason = pdfHealth && !pdfHealth.ok ? pdfHealth.reason : null;
-  // ────────────────────────────────────────────────────────────────────────
+  // Nunca expor URLs internas — reason já vem sanitizado do pdfClient
+  const pdfUnavailableReason =
+    pdfHealth && !pdfHealth.ok ? pdfHealth.reason : null;
+  // ─────────────────────────────────────────────────────────────────────────
+
+  // ── Download Safari-safe ─────────────────────────────────────────────────
+  // O download DEVE ser disparado de forma síncrona ao onClick para o Safari
+  // aceitar como user gesture. Por isso, ao clicar criamos um input[file] falso
+  // e disparamos o clique do link de forma inline — o blob é criado só depois
+  // que a mutation resolve, mas o link precisa existir no DOM antecipadamente.
+  // Alternativa mais simples e compatível: criar o <a> dinamicamente e clicar
+  // imediatamente no onSuccess (funciona no Safari >= 15.4 com Blob URLs).
+
+  const triggerDownload = useCallback((base64: string, filename: string) => {
+    try {
+      const binary = atob(base64);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i);
+      }
+      const blob = new Blob([bytes], { type: "application/pdf" });
+      const url = URL.createObjectURL(blob);
+
+      // Safari: <a> precisa estar no DOM e ser clicado em contexto de user gesture.
+      // Criar, clicar e remover imediatamente é a abordagem mais compatível.
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      a.rel = "noopener";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+
+      // Revogar após pequeno delay para garantir que o browser iniciou o download
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      // Fallback: abrir em nova aba (Safari sempre aceita window.open em user gesture)
+      window.open(`data:application/pdf;base64,${base64}`, "_blank", "noopener");
+    }
+  }, []);
 
   const generatePdf = trpc.report.generate.useMutation({
     onSuccess: (data) => {
-      const bytes = Uint8Array.from(atob(data.pdfBase64), c => c.charCodeAt(0));
-      const blob = new Blob([bytes], { type: "application/pdf" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = data.filename;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast.success("Relatório PDF gerado com sucesso!");
       setPdfGenerating(false);
+      triggerDownload(data.pdfBase64, data.filename);
+      toast.success("PDF gerado com sucesso!");
     },
     onError: (err) => {
-      toast.error(`Erro ao gerar PDF: ${err.message}`);
       setPdfGenerating(false);
+      // Revalidar health após falha (pode ter sido cold start)
+      refetchHealth();
+      toast.error(err.message ?? "PDF indisponível no momento. Tente novamente em instantes.");
     },
   });
 
@@ -129,6 +166,11 @@ export default function Submitted({ onRestart }: SubmittedProps) {
       </div>
     );
   }
+
+  // Botão desabilitado se: gerando, assessment incompleto, ou health ainda carregando
+  // NÃO desabilitar apenas por pdfServiceOk=false — deixar o usuário tentar
+  // (o generate já tenta warmup antes de falhar)
+  const buttonDisabled = pdfGenerating || !status?.allComplete || healthLoading;
 
   return (
     <div className="space-y-5 max-w-2xl mx-auto px-4 py-6">
@@ -245,14 +287,11 @@ export default function Submitted({ onRestart }: SubmittedProps) {
                 Radar de Agilidades, Big Five, mapa IKIGAI e Plano 90 dias.
               </p>
 
-              {/* Aviso quando pdf_service está offline */}
-              {!healthLoading && !pdfServiceOk && (
+              {/* Aviso de indisponibilidade — sem URL interna */}
+              {!healthLoading && pdfUnavailableReason && (
                 <p className="text-xs text-amber-600 mt-1.5 flex items-center gap-1">
                   <WifiOff className="w-3 h-3 flex-shrink-0" />
-                  PDF indisponível no momento
-                  {pdfServiceReason && (
-                    <span className="text-amber-500/70"> — {pdfServiceReason}</span>
-                  )}
+                  {pdfUnavailableReason}
                 </p>
               )}
             </div>
@@ -261,7 +300,7 @@ export default function Submitted({ onRestart }: SubmittedProps) {
               variant="default"
               size="sm"
               className="gap-1.5 shrink-0"
-              disabled={pdfGenerating || !status?.allComplete || healthLoading || !pdfServiceOk}
+              disabled={buttonDisabled}
               onClick={() => {
                 setPdfGenerating(true);
                 generatePdf.mutate();
@@ -270,7 +309,7 @@ export default function Submitted({ onRestart }: SubmittedProps) {
               {pdfGenerating ? (
                 <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Gerando...</>
               ) : healthLoading ? (
-                <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Verificando...</>
+                <><Loader2 className="w-3.5 h-3.5 animate-spin" /> Aguarde...</>
               ) : (
                 <><Download className="w-3.5 h-3.5" /> Baixar PDF</>
               )}

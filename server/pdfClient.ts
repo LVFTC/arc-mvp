@@ -1,50 +1,42 @@
 /**
  * server/pdfClient.ts
  *
- * PATCH fix/pdf-service-offline
- *
- * Root-cause do bug:
- *   O try/finally original não tinha catch — quando o uvicorn não está rodando,
- *   fetch() lança ECONNREFUSED que subia como erro raw "fetch failed" sem contexto.
- *   O router.generate também não tinha try/catch, então o tRPC serializava o erro
- *   cru e o cliente recebia apenas "fetch failed".
- *
- * Fix:
- *   1. Erros tipados (PdfServiceOfflineError, PdfServiceTimeoutError, PdfRenderError)
- *   2. try/catch explícito com classificação de erro
- *   3. checkPdfServiceHealth() exposto para o router report.health
+ * FASE A fix: retry/backoff no health, erros sem URL interna, timeout por tentativa.
  */
 
 const PDF_SERVICE_URL = process.env.PDF_SERVICE_URL ?? "http://127.0.0.1:8001";
-const PDF_RENDER_TIMEOUT_MS = 30_000;
-const HEALTH_TIMEOUT_MS = 4_000;
+
+const RENDER_TIMEOUT_MS = 30_000;
+const HEALTH_TIMEOUT_MS = 3_000;
+const HEALTH_RETRIES = 3;
+const HEALTH_BACKOFF_MS = [0, 800, 1600]; // delay antes de cada tentativa
 
 // ── Erros tipados ─────────────────────────────────────────────────────────────
 
 export class PdfServiceOfflineError extends Error {
   constructor() {
-    super(`PDF service offline — não foi possível conectar em ${PDF_SERVICE_URL}`);
+    super("Serviço de PDF temporariamente indisponível. Tente novamente em instantes.");
     this.name = "PdfServiceOfflineError";
   }
 }
 
 export class PdfServiceTimeoutError extends Error {
   constructor() {
-    super(`PDF service timeout após ${PDF_RENDER_TIMEOUT_MS}ms`);
+    super("A geração do PDF demorou mais do que o esperado. Tente novamente.");
     this.name = "PdfServiceTimeoutError";
   }
 }
 
 export class PdfRenderError extends Error {
   constructor(public status: number, public detail: string) {
-    super(`PDF render falhou (HTTP ${status}): ${detail}`);
+    super("Ocorreu um erro ao montar o PDF. Tente novamente.");
     this.name = "PdfRenderError";
   }
 }
 
-// ── Helper: detecta "connection refused" cross-platform ──────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-function isConnectionRefused(err: unknown): boolean {
+function isConnectionError(err: unknown): boolean {
   if (!(err instanceof Error)) return false;
   const msg = err.message.toLowerCase();
   return (
@@ -52,16 +44,58 @@ function isConnectionRefused(err: unknown): boolean {
     msg.includes("fetch failed") ||
     msg.includes("enotfound") ||
     msg.includes("failed to fetch") ||
-    msg.includes("network") ||
+    msg.includes("networkerror") ||
     msg.includes("connect")
   );
+}
+
+async function delay(ms: number) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+// ── checkPdfServiceHealth: 3 tentativas com backoff ──────────────────────────
+
+export async function checkPdfServiceHealth(): Promise<
+  { ok: true } | { ok: false; reason: string }
+> {
+  let lastReason = "serviço indisponível";
+
+  for (let attempt = 0; attempt < HEALTH_RETRIES; attempt++) {
+    if (HEALTH_BACKOFF_MS[attempt] > 0) {
+      await delay(HEALTH_BACKOFF_MS[attempt]);
+    }
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), HEALTH_TIMEOUT_MS);
+
+    try {
+      const res = await fetch(`${PDF_SERVICE_URL}/health`, {
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (res.ok) return { ok: true };
+      lastReason = "PDF indisponível no momento";
+    } catch (err) {
+      clearTimeout(timer);
+      if ((err as Error)?.name === "AbortError") {
+        lastReason = "PDF indisponível no momento";
+      } else if (isConnectionError(err)) {
+        lastReason = "PDF indisponível no momento";
+      } else {
+        lastReason = "PDF indisponível no momento";
+      }
+      // Continua para próxima tentativa
+    }
+  }
+
+  return { ok: false, reason: lastReason };
 }
 
 // ── callPdfService ────────────────────────────────────────────────────────────
 
 export async function callPdfService(payload: unknown): Promise<Buffer> {
   const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), PDF_RENDER_TIMEOUT_MS);
+  const timer = setTimeout(() => controller.abort(), RENDER_TIMEOUT_MS);
 
   let res: Response;
   try {
@@ -74,44 +108,16 @@ export async function callPdfService(payload: unknown): Promise<Buffer> {
   } catch (err) {
     clearTimeout(timer);
     if ((err as Error)?.name === "AbortError") throw new PdfServiceTimeoutError();
-    if (isConnectionRefused(err)) throw new PdfServiceOfflineError();
-    throw err; // erro inesperado — re-lança para o caller logar
+    if (isConnectionError(err)) throw new PdfServiceOfflineError();
+    throw err;
   } finally {
     clearTimeout(timer);
   }
 
   if (!res.ok) {
-    const detail = await res.text().catch(() => "sem detalhe");
+    const detail = await res.text().catch(() => "");
     throw new PdfRenderError(res.status, detail);
   }
 
-  const arrayBuffer = await res.arrayBuffer();
-  return Buffer.from(arrayBuffer);
-}
-
-// ── checkPdfServiceHealth ─────────────────────────────────────────────────────
-
-export async function checkPdfServiceHealth(): Promise<
-  { ok: true } | { ok: false; reason: string }
-> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), HEALTH_TIMEOUT_MS);
-
-  try {
-    const res = await fetch(`${PDF_SERVICE_URL}/health`, {
-      signal: controller.signal,
-    });
-    if (res.ok) return { ok: true };
-    return { ok: false, reason: `HTTP ${res.status} em ${PDF_SERVICE_URL}` };
-  } catch (err) {
-    if ((err as Error)?.name === "AbortError") {
-      return { ok: false, reason: `timeout após ${HEALTH_TIMEOUT_MS}ms` };
-    }
-    if (isConnectionRefused(err)) {
-      return { ok: false, reason: `serviço offline em ${PDF_SERVICE_URL}` };
-    }
-    return { ok: false, reason: (err as Error)?.message ?? "erro desconhecido" };
-  } finally {
-    clearTimeout(timer);
-  }
+  return Buffer.from(await res.arrayBuffer());
 }

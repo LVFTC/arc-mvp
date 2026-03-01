@@ -22,7 +22,14 @@ import {
   deleteUserData,
 } from "./db";
 import { buildReportPayload } from "./reportBuilder";
-import { callPdfService, checkPdfServiceHealth, PdfServiceOfflineError, PdfServiceTimeoutError, PdfRenderError } from "./pdfClient";
+import {
+  callPdfService,
+  checkPdfServiceHealth,
+  PdfServiceOfflineError,
+  PdfServiceTimeoutError,
+  PdfRenderError,
+} from "./pdfClient";
+
 export const appRouter = router({
   system: systemRouter,
 
@@ -170,6 +177,7 @@ export const appRouter = router({
 
   // ─── PDF Report ─────────────────────────────────────────────────────
   // ─── PDF Report ─────────────────────────────────────────────────────
+  // ─── PDF Report ─────────────────────────────────────────────────────
   report: router({
 
     health: protectedProcedure.query(async () => {
@@ -177,11 +185,16 @@ export const appRouter = router({
     }),
 
     generate: protectedProcedure.mutation(async ({ ctx }) => {
-      const health = await checkPdfServiceHealth();
+      // Tentar health com warmup automático antes de falhar
+      let health = await checkPdfServiceHealth();
+      if (!health.ok) {
+        await new Promise(r => setTimeout(r, 2000));
+        health = await checkPdfServiceHealth();
+      }
       if (!health.ok) {
         throw new TRPCError({
           code: "INTERNAL_SERVER_ERROR",
-          message: `PDF service indisponível: ${health.reason}`,
+          message: health.reason,
         });
       }
 
@@ -193,7 +206,10 @@ export const appRouter = router({
       const status = await getAssessmentStatus(ctx.user.id);
 
       if (!status.allComplete) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Assessment not complete — cannot generate PDF" });
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Assessment not complete — cannot generate PDF",
+        });
       }
 
       const payload = await buildReportPayload(ctx.user.id, assessment);
@@ -207,20 +223,25 @@ export const appRouter = router({
           filename: `arc-relatorio-${ctx.user.id}-${Date.now()}.pdf`,
         };
       } catch (err) {
-        console.error("[report.generate] PDF service error:", err);
-        if (err instanceof PdfServiceOfflineError) {
-          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Serviço de PDF offline. Tente novamente em instantes." });
+        console.error("[report.generate]", err);
+        if (
+          err instanceof PdfServiceOfflineError ||
+          err instanceof PdfServiceTimeoutError ||
+          err instanceof PdfRenderError
+        ) {
+          throw new TRPCError({
+            code: "INTERNAL_SERVER_ERROR",
+            message: (err as Error).message,
+          });
         }
-        if (err instanceof PdfServiceTimeoutError) {
-          throw new TRPCError({ code: "TIMEOUT", message: "Geração de PDF demorou demais. Tente novamente." });
-        }
-        if (err instanceof PdfRenderError) {
-          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Erro ao renderizar PDF (${err.status}): ${err.detail}` });
-        }
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Erro inesperado ao gerar PDF. Tente novamente." });
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: "Erro ao gerar PDF. Tente novamente.",
+        });
       }
     }),
   }),
+
 
    // ─── Full Assessment (for Review page) ────────
   assessment: router({

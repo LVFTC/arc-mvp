@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { LikertQuestion } from "@/components/LikertQuestion";
 import { BIG_FIVE_ITEMS, BIG_FIVE_TRAITS } from "@shared/questionBank";
 import { trpc } from "@/lib/trpc";
-import { ArrowLeft, Save, Fingerprint } from "lucide-react";
+import { ArrowLeft, Save, Fingerprint, Check } from "lucide-react";
 import { toast } from "sonner";
 import { ArcTeaches, type ArcTeachesContent } from "@/components/ArcTeaches";
 
@@ -26,6 +26,8 @@ interface BigFiveProps {
 export default function BigFive({ onNext, onPrev }: BigFiveProps) {
   const [answers, setAnswers] = useState<Record<string, number>>({});
   const loadedRef = useRef(false);
+  // FASE B: indicador inline em vez de toast (evita removeChild crash no Safari)
+  const [savedIndicator, setSavedIndicator] = useState(false);
   const saveMutation = trpc.likert.save.useMutation();
 
   const { data: existingAnswers, isLoading } = trpc.likert.get.useQuery();
@@ -62,8 +64,13 @@ export default function BigFive({ onNext, onPrev }: BigFiveProps) {
           reverseFlag: item.reverse,
         }));
       await saveMutation.mutateAsync({ section: "bigfive", items });
-      toast.success("Personalidade salva!");
-      onNext();
+
+      // Indicador inline por 800ms antes de navegar — sem toast (evita crash Safari)
+      setSavedIndicator(true);
+      setTimeout(() => {
+        setSavedIndicator(false);
+        onNext();
+      }, 800);
     } catch {
       toast.error("Erro ao salvar. Tente novamente.");
     }
@@ -103,7 +110,6 @@ export default function BigFive({ onNext, onPrev }: BigFiveProps) {
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {/* Microintervenção ARC ensina a pensar */}
           <ArcTeaches content={BIG_FIVE_TEACH} />
 
           {groupedByTrait.map((trait) => (
@@ -133,14 +139,15 @@ export default function BigFive({ onNext, onPrev }: BigFiveProps) {
         </Button>
         <Button
           onClick={handleSave}
-          disabled={!allAnswered || saveMutation.isPending}
+          disabled={!allAnswered || saveMutation.isPending || savedIndicator}
           className="gap-2"
         >
-          {saveMutation.isPending ? "Salvando..." : (
-            <>
-              <Save className="w-4 h-4" />
-              Salvar e continuar
-            </>
+          {savedIndicator ? (
+            <><Check className="w-4 h-4" /> Salvo</>
+          ) : saveMutation.isPending ? (
+            "Salvando..."
+          ) : (
+            <><Save className="w-4 h-4" /> Salvar e continuar</>
           )}
         </Button>
       </div>

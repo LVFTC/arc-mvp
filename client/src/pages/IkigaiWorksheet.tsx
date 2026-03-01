@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { IKIGAI_CIRCLES, IKIGAI_ZONES } from "@shared/questionBank";
 import type { IkigaiCircleKey, IkigaiZoneKey } from "@shared/questionBank";
 import { trpc } from "@/lib/trpc";
-import { ArrowLeft, ArrowRight, Save, Plus, X, ChevronUp, ChevronDown } from "lucide-react";
+import { ArrowLeft, ArrowRight, Save, Plus, X, ChevronUp, ChevronDown, Check, HelpCircle } from "lucide-react";
 import { toast } from "sonner";
 import { ArcTeaches, type ArcTeachesContent } from "@/components/ArcTeaches";
 
@@ -43,11 +43,12 @@ export default function IkigaiWorksheet({ onNext, onPrev }: IkigaiWorksheetProps
   const [showZoneSelection, setShowZoneSelection] = useState(false);
   const loadedIkigaiRef = useRef(false);
   const loadedChoicesRef = useRef(false);
+  // FASE B: indicador inline em vez de toast
+  const [savedIndicator, setSavedIndicator] = useState(false);
 
   const saveIkigaiMutation = trpc.ikigai.save.useMutation();
   const saveChoicesMutation = trpc.choices.save.useMutation();
 
-  // Load existing data
   const { data: existingIkigai, isLoading: ikigaiLoading } = trpc.ikigai.get.useQuery();
   const { data: existingChoices } = trpc.choices.get.useQuery();
 
@@ -65,9 +66,7 @@ export default function IkigaiWorksheet({ onNext, onPrev }: IkigaiWorksheetProps
         loaded[k as IkigaiCircleKey].sort((a, b) => a.rank - b.rank);
       });
       const hasData = Object.values(loaded).some((arr) => arr.length > 0);
-      if (hasData) {
-        setCircleData(loaded);
-      }
+      if (hasData) setCircleData(loaded);
     }
   }, [existingIkigai]);
 
@@ -124,9 +123,12 @@ export default function IkigaiWorksheet({ onNext, onPrev }: IkigaiWorksheetProps
     });
   };
 
-  const circleValid = currentItems.length >= 3 && currentItems.every((item) => item.text.trim().length > 0);
+  const circleValid =
+    currentItems.length >= 3 && currentItems.every((item) => item.text.trim().length > 0);
   const allCirclesValid = IKIGAI_CIRCLES.every(
-    (c) => circleData[c.key].length >= 3 && circleData[c.key].every((item) => item.text.trim().length > 0)
+    (c) =>
+      circleData[c.key].length >= 3 &&
+      circleData[c.key].every((item) => item.text.trim().length > 0)
   );
 
   const handleNextCircle = () => {
@@ -164,8 +166,13 @@ export default function IkigaiWorksheet({ onNext, onPrev }: IkigaiWorksheetProps
       if (chosenZone) {
         await saveChoicesMutation.mutateAsync({ chosenZone, assessmentStatus: "in_progress" });
       }
-      toast.success("IKIGAI salvo!");
-      onNext();
+
+      // FASE B: indicador inline — sem toast (evita crash Safari)
+      setSavedIndicator(true);
+      setTimeout(() => {
+        setSavedIndicator(false);
+        onNext();
+      }, 800);
     } catch {
       toast.error("Erro ao salvar. Tente novamente.");
     }
@@ -216,14 +223,15 @@ export default function IkigaiWorksheet({ onNext, onPrev }: IkigaiWorksheetProps
           </Button>
           <Button
             onClick={handleSaveAll}
-            disabled={!chosenZone || !allCirclesValid || saveIkigaiMutation.isPending}
+            disabled={!chosenZone || !allCirclesValid || saveIkigaiMutation.isPending || savedIndicator}
             className="gap-2"
           >
-            {saveIkigaiMutation.isPending ? "Salvando..." : (
-              <>
-                <Save className="w-4 h-4" />
-                Salvar e revisar
-              </>
+            {savedIndicator ? (
+              <><Check className="w-4 h-4" /> Salvo</>
+            ) : saveIkigaiMutation.isPending ? (
+              "Salvando..."
+            ) : (
+              <><Save className="w-4 h-4" /> Salvar e revisar</>
             )}
           </Button>
         </div>
@@ -246,55 +254,59 @@ export default function IkigaiWorksheet({ onNext, onPrev }: IkigaiWorksheetProps
               </CardDescription>
             </div>
           </div>
+          {/* Barra de progresso dos círculos */}
           <div className="flex gap-1 mt-3">
             {IKIGAI_CIRCLES.map((c, i) => (
               <div
                 key={c.key}
-                className={`h-1.5 flex-1 rounded-full transition-colors`}
+                className="h-1.5 flex-1 rounded-full transition-colors"
                 style={{
-                  backgroundColor: i < circleIdx ? c.color : i === circleIdx ? `${c.color}99` : "#e5e7eb",
+                  backgroundColor:
+                    i < circleIdx
+                      ? c.color
+                      : i === circleIdx
+                      ? c.color
+                      : "#e2e8f0",
+                  opacity: i <= circleIdx ? 1 : 0.3,
                 }}
               />
             ))}
           </div>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Microintervenção ARC ensina a pensar */}
-          <ArcTeaches content={IKIGAI_TEACH} />
+          {/* ArcTeaches — apenas no primeiro círculo */}
+          {circleIdx === 0 && <ArcTeaches content={IKIGAI_TEACH} />}
 
-          {/* Prompts */}
-          <div className="p-3 rounded-lg bg-muted/50 space-y-1">
-            {currentCircle.prompts.map((prompt, i) => (
-              <p key={i} className="text-sm text-muted-foreground italic">
-                {prompt}
+          {/* ── FASE C: Perguntas-guia destacadas ────────────────────── */}
+          {currentCircle.prompts && currentCircle.prompts.length > 0 && (
+            <div className="rounded-lg border-l-4 border-primary bg-primary/5 px-4 py-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <HelpCircle className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                <span className="text-xs font-semibold text-primary uppercase tracking-wide">
+                  Perguntas-guia
+                </span>
+              </div>
+              <ul className="space-y-1.5">
+                {currentCircle.prompts.map((prompt, i) => (
+                  <li key={i} className="text-sm text-foreground/80 flex items-start gap-2">
+                    <span className="text-primary mt-0.5 flex-shrink-0">→</span>
+                    {prompt}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-muted-foreground mt-2.5 italic">
+                Use isso para pensar. Você não precisa responder aqui.
               </p>
-            ))}
-          </div>
+            </div>
+          )}
+          {/* ─────────────────────────────────────────────────────────── */}
 
-          {/* Items list */}
+          {/* Itens do círculo */}
           <div className="space-y-2">
             {currentItems.map((item, idx) => (
-              <div key={idx} className="flex items-center gap-2 p-2 rounded-lg border border-border bg-card">
-                <div className="flex flex-col gap-0.5">
-                  <button
-                    type="button"
-                    onClick={() => moveItem(idx, "up")}
-                    disabled={idx === 0}
-                    className="text-muted-foreground hover:text-foreground disabled:opacity-30 p-0.5"
-                  >
-                    <ChevronUp className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => moveItem(idx, "down")}
-                    disabled={idx === currentItems.length - 1}
-                    className="text-muted-foreground hover:text-foreground disabled:opacity-30 p-0.5"
-                  >
-                    <ChevronDown className="w-3.5 h-3.5" />
-                  </button>
-                </div>
+              <div key={idx} className="flex items-center gap-2">
                 <span
-                  className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white shrink-0"
+                  className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0"
                   style={{ backgroundColor: currentCircle.color }}
                 >
                   {idx + 1}
@@ -303,34 +315,50 @@ export default function IkigaiWorksheet({ onNext, onPrev }: IkigaiWorksheetProps
                   value={item.text}
                   onChange={(e) => updateItemText(idx, e.target.value)}
                   placeholder={`Item ${idx + 1}...`}
-                  className="flex-1 border-0 bg-transparent focus-visible:ring-0 px-1"
+                  className="flex-1"
                 />
-                <button
-                  type="button"
-                  onClick={() => removeItem(idx)}
-                  className="text-muted-foreground hover:text-destructive p-1"
-                >
-                  <X className="w-4 h-4" />
-                </button>
+                <div className="flex gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => moveItem(idx, "up")}
+                    disabled={idx === 0}
+                  >
+                    <ChevronUp className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8"
+                    onClick={() => moveItem(idx, "down")}
+                    disabled={idx === currentItems.length - 1}
+                  >
+                    <ChevronDown className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 text-destructive hover:text-destructive"
+                    onClick={() => removeItem(idx)}
+                  >
+                    <X className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
             ))}
           </div>
 
           {currentItems.length < 5 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={addItem}
-              className="gap-2 w-full border-dashed"
-            >
+            <Button variant="outline" size="sm" onClick={addItem} className="gap-2 w-full">
               <Plus className="w-4 h-4" />
-              Adicionar item ({currentItems.length}/5)
+              Adicionar item
             </Button>
           )}
 
           {currentItems.length < 3 && (
-            <p className="text-xs text-destructive">
-              Mínimo de 3 itens necessários ({currentItems.length}/3)
+            <p className="text-xs text-amber-600 text-center">
+              Adicione pelo menos 3 itens para continuar.
             </p>
           )}
         </CardContent>
@@ -341,21 +369,11 @@ export default function IkigaiWorksheet({ onNext, onPrev }: IkigaiWorksheetProps
           <ArrowLeft className="w-4 h-4" />
           Voltar
         </Button>
-        <Button
-          onClick={handleNextCircle}
-          disabled={!circleValid}
-          className="gap-2"
-        >
+        <Button onClick={handleNextCircle} disabled={!circleValid} className="gap-2">
           {circleIdx < IKIGAI_CIRCLES.length - 1 ? (
-            <>
-              Próximo círculo
-              <ArrowRight className="w-4 h-4" />
-            </>
+            <><ArrowRight className="w-4 h-4" /> Próximo círculo</>
           ) : (
-            <>
-              Escolher zona
-              <ArrowRight className="w-4 h-4" />
-            </>
+            <><ArrowRight className="w-4 h-4" /> Escolher zona</>
           )}
         </Button>
       </div>
