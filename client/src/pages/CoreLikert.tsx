@@ -158,9 +158,7 @@ export default function CoreLikert({ onNext, onPrev }: CoreLikertProps) {
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg">{currentDimension.label}</CardTitle>
-          {currentDimension.description && (
-            <CardDescription>{currentDimension.description}</CardDescription>
-          )}
+
         </CardHeader>
         <CardContent className="space-y-4">
           {teach && <ArcTeaches content={teach} />}

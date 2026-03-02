@@ -147,14 +147,14 @@ export default function Submitted({ onRestart }: SubmittedProps) {
       icon: <Heart className="w-4 h-4" />,
       complete: status?.sections?.ikigai?.complete,
       detail: status?.sections?.ikigai
-        ? `${status.sections.ikigai.answered}/${status.sections.ikigai.total} círculos`
+        ? `${status.sections.ikigai.circles.filter(c => c.count >= c.min).length}/${status.sections.ikigai.circles.length} círculos`
         : null,
     },
     {
       key: "choices",
       label: "Zona & Hipótese",
       icon: <Target className="w-4 h-4" />,
-      complete: status?.sections?.choices?.complete,
+      complete: status?.sections?.zone?.complete,
       detail: chosenZone ?? null,
     },
   ];

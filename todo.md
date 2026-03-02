@@ -81,3 +81,16 @@
 - [x] E3: Botão "Baixar PDF" habilitado no Dashboard (Submitted.tsx)
 - [x] E3: Smoke tests: PDF gerado (61KB), UNAUTHORIZED sem auth (401), DELETE /me/data (401 sem auth)
 - [x] E3: 25 testes vitest passando
+
+## Release Fix (pré-publish)
+
+- [x] Pull do main (910a786) — já up to date
+- [x] 25 testes vitest passando
+- [x] Fix TS: CoreLikert.tsx — dimension.description removido (não existe no tipo)
+- [x] Fix TS: Submitted.tsx — ikigai.answered/total → circles.filter(c=>c.count>=c.min).length
+- [x] Fix TS: Submitted.tsx — status.choices → status.zone
+- [x] Fix startup: spawn uvicorn com cwd=projectRoot (pdf_service não encontrava módulo)
+- [x] Build de produção: 0 erros TS, 0 erros Vite
+- [x] pdf_service /health: {"status":"ok"} ✓
+- [x] Node.js /api/trpc/auth.me: respondendo ✓
+- [x] URL interna 127.0.0.1 não exposta na UI (pdfClient sanitiza reason)
