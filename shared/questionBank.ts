@@ -22,12 +22,38 @@ export interface BigFiveItem {
 }
 
 export const DIMENSIONS = [
-  { key: "self_management", label: "Autoconhecimento / Autogestão" },
-  { key: "mental_agility", label: "Agilidade Mental" },
-  { key: "people_agility", label: "Agilidade com Pessoas" },
-  { key: "change_agility", label: "Agilidade com Mudanças" },
-  { key: "results_agility", label: "Agilidade com Resultados" },
+  {
+    key: "self_management",
+    label: "Autogestão",
+    description: "Capacidade de operar com consistência mesmo sob pressão, ambiguidade ou imprevistos.",
+  },
+  {
+    key: "mental",
+    label: "Agilidade Mental",
+    description: "Velocidade de aprender, sintetizar e aplicar frameworks em contextos novos.",
+  },
+  {
+    key: "people",
+    label: "Agilidade com Pessoas",
+    description: "Capacidade de ler contextos relacionais, adaptar comunicação e construir confiança.",
+  },
+  {
+    key: "change",
+    label: "Agilidade com Mudanças",
+    description: "Tolerância à ambiguidade e capacidade de navegar instabilidade sem travar.",
+  },
+  {
+    key: "results",
+    label: "Agilidade com Resultados",
+    description: "Foco, priorização e execução consistente — escolher o que importa e entregar.",
+  },
+  {
+    key: "innovation",
+    label: "Agilidade com Inovação",
+    description: "Disposição de questionar o status quo e testar hipóteses com recursos limitados.",
+  },
 ] as const;
+
 
 export type DimensionKey = typeof DIMENSIONS[number]["key"];
 

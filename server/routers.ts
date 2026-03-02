@@ -22,13 +22,8 @@ import {
   deleteUserData,
 } from "./db";
 import { buildReportPayload } from "./reportBuilder";
-import {
-  callPdfService,
-  checkPdfServiceHealth,
-  PdfServiceOfflineError,
-  PdfServiceTimeoutError,
-  PdfRenderError,
-} from "./pdfClient";
+import { callPdfService, checkPdfServiceHealth, PdfServiceOfflineError, PdfServiceTimeoutError, PdfRenderError } from "./pdfClient";
+
 
 export const appRouter = router({
   system: systemRouter,
@@ -175,17 +170,17 @@ export const appRouter = router({
     }),
   }),
 
-  // ─── PDF Report ─────────────────────────────────────────────────────
-  // ─── PDF Report ─────────────────────────────────────────────────────
+
   // ─── PDF Report ─────────────────────────────────────────────────────
   report: router({
 
+    // health: consultado pelo frontend antes e durante o uso
     health: protectedProcedure.query(async () => {
       return checkPdfServiceHealth();
     }),
 
     generate: protectedProcedure.mutation(async ({ ctx }) => {
-      // Tentar health com warmup automático antes de falhar
+      // Verificar saúde; se falhar, tentar uma vez mais após 2s (warmup)
       let health = await checkPdfServiceHealth();
       if (!health.ok) {
         await new Promise(r => setTimeout(r, 2000));
@@ -220,24 +215,14 @@ export const appRouter = router({
         return {
           success: true,
           pdfBase64: pdfBuffer.toString("base64"),
-          filename: `arc-relatorio-${ctx.user.id}-${Date.now()}.pdf`,
+          filename: \`arc-relatorio-\${ctx.user.id}-\${Date.now()}.pdf\`',
         };
       } catch (err) {
         console.error("[report.generate]", err);
-        if (
-          err instanceof PdfServiceOfflineError ||
-          err instanceof PdfServiceTimeoutError ||
-          err instanceof PdfRenderError
-        ) {
-          throw new TRPCError({
-            code: "INTERNAL_SERVER_ERROR",
-            message: (err as Error).message,
-          });
+        if (err instanceof PdfServiceOfflineError || err instanceof PdfServiceTimeoutError || err instanceof PdfRenderError) {
+          throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: (err as Error).message });
         }
-        throw new TRPCError({
-          code: "INTERNAL_SERVER_ERROR",
-          message: "Erro ao gerar PDF. Tente novamente.",
-        });
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Erro ao gerar PDF. Tente novamente." });
       }
     }),
   }),

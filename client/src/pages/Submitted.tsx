@@ -30,32 +30,23 @@ export default function Submitted({ onRestart }: SubmittedProps) {
   const { data: assessment, isLoading: assessmentLoading } = trpc.assessment.getFull.useQuery();
   const { data: plan } = trpc.plan90d.get.useQuery();
   const [pdfGenerating, setPdfGenerating] = useState(false);
-  const utils = trpc.useUtils();
 
   // ── PDF health: poll a cada 15s; não travar na primeira falha ────────────
   const { data: pdfHealth, isLoading: healthLoading, refetch: refetchHealth } =
     trpc.report.health.useQuery(undefined, {
-      // Refetch periódico para detectar warmup do pdf_service
       refetchInterval: 15_000,
       refetchOnWindowFocus: true,
       retry: 2,
       retryDelay: 1000,
     });
 
-  const pdfServiceOk = pdfHealth?.ok === true;
-  // Nunca expor URLs internas — reason já vem sanitizado do pdfClient
   const pdfUnavailableReason =
     pdfHealth && !pdfHealth.ok ? pdfHealth.reason : null;
   // ─────────────────────────────────────────────────────────────────────────
 
-  // ── Download Safari-safe ─────────────────────────────────────────────────
-  // O download DEVE ser disparado de forma síncrona ao onClick para o Safari
-  // aceitar como user gesture. Por isso, ao clicar criamos um input[file] falso
-  // e disparamos o clique do link de forma inline — o blob é criado só depois
-  // que a mutation resolve, mas o link precisa existir no DOM antecipadamente.
-  // Alternativa mais simples e compatível: criar o <a> dinamicamente e clicar
-  // imediatamente no onSuccess (funciona no Safari >= 15.4 com Blob URLs).
-
+  // ── Download Safari-safe ──────────────────────────────────────────────────
+  // triggerDownload é chamado dentro de onSuccess (que já está no contexto
+  // do user gesture original via mutate() → Safari aceita Blob URLs >= 15.4)
   const triggerDownload = useCallback((base64: string, filename: string) => {
     try {
       const binary = atob(base64);
@@ -66,8 +57,7 @@ export default function Submitted({ onRestart }: SubmittedProps) {
       const blob = new Blob([bytes], { type: "application/pdf" });
       const url = URL.createObjectURL(blob);
 
-      // Safari: <a> precisa estar no DOM e ser clicado em contexto de user gesture.
-      // Criar, clicar e remover imediatamente é a abordagem mais compatível.
+      // Criar <a> no DOM, clicar e remover imediatamente (Safari-compatible)
       const a = document.createElement("a");
       a.href = url;
       a.download = filename;
@@ -77,10 +67,9 @@ export default function Submitted({ onRestart }: SubmittedProps) {
       a.click();
       document.body.removeChild(a);
 
-      // Revogar após pequeno delay para garantir que o browser iniciou o download
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch {
-      // Fallback: abrir em nova aba (Safari sempre aceita window.open em user gesture)
+      // Fallback: abrir em nova aba (sempre funciona em user gesture)
       window.open(`data:application/pdf;base64,${base64}`, "_blank", "noopener");
     }
   }, []);
@@ -93,7 +82,6 @@ export default function Submitted({ onRestart }: SubmittedProps) {
     },
     onError: (err) => {
       setPdfGenerating(false);
-      // Revalidar health após falha (pode ter sido cold start)
       refetchHealth();
       toast.error(err.message ?? "PDF indisponível no momento. Tente novamente em instantes.");
     },
@@ -104,6 +92,7 @@ export default function Submitted({ onRestart }: SubmittedProps) {
   const bigFiveAnswers: Record<string, number> = {};
   assessment?.likert?.forEach(r => { bigFiveAnswers[r.itemId] = r.value; });
 
+  // TS FIX 3: choices vem de assessment.choices, não de status.choices
   const chosenZone = assessment?.choices?.chosenZone;
   const zoneInfo = chosenZone ? IKIGAI_ZONES.find(z => z.key === chosenZone) : null;
 
@@ -113,14 +102,24 @@ export default function Submitted({ onRestart }: SubmittedProps) {
       })
     : null;
 
+  // TS FIX 2: ikigai status usa circles[], não answered/total diretamente
+  // Calculamos answered/total a partir dos circles quando disponível
+  const ikigaiStatus = status?.sections?.ikigai as
+    | { complete: boolean; circles?: Array<{ key: string; count: number; min: number }> }
+    | undefined;
+  const ikigaiAnswered = ikigaiStatus?.circles
+    ? ikigaiStatus.circles.filter(c => c.count >= c.min).length
+    : undefined;
+  const ikigaiTotal = ikigaiStatus?.circles?.length;
+
   const sectionList = [
     {
       key: "core_likert",
       label: "Agilidades CORE",
       icon: <BarChart2 className="w-4 h-4" />,
       complete: status?.sections?.core_likert?.complete,
-      detail: status?.sections?.core_likert
-        ? `${status.sections.core_likert.answered}/${status.sections.core_likert.total} itens`
+      detail: (status?.sections?.core_likert as { answered?: number; total?: number } | undefined)?.answered !== undefined
+        ? `${(status!.sections!.core_likert as { answered: number; total: number }).answered}/${(status!.sections!.core_likert as { answered: number; total: number }).total} itens`
         : null,
     },
     {
@@ -128,8 +127,8 @@ export default function Submitted({ onRestart }: SubmittedProps) {
       label: "Evidências",
       icon: <FileText className="w-4 h-4" />,
       complete: status?.sections?.core_evidence?.complete,
-      detail: status?.sections?.core_evidence
-        ? `${status.sections.core_evidence.answered}/${status.sections.core_evidence.total} itens`
+      detail: (status?.sections?.core_evidence as { answered?: number; total?: number } | undefined)?.answered !== undefined
+        ? `${(status!.sections!.core_evidence as { answered: number; total: number }).answered}/${(status!.sections!.core_evidence as { answered: number; total: number }).total} itens`
         : null,
     },
     {
@@ -137,24 +136,26 @@ export default function Submitted({ onRestart }: SubmittedProps) {
       label: "Big Five",
       icon: <Brain className="w-4 h-4" />,
       complete: status?.sections?.bigfive?.complete,
-      detail: status?.sections?.bigfive
-        ? `${status.sections.bigfive.answered}/${status.sections.bigfive.total} itens`
+      detail: (status?.sections?.bigfive as { answered?: number; total?: number } | undefined)?.answered !== undefined
+        ? `${(status!.sections!.bigfive as { answered: number; total: number }).answered}/${(status!.sections!.bigfive as { answered: number; total: number }).total} itens`
         : null,
     },
     {
       key: "ikigai",
       label: "IKIGAI",
       icon: <Heart className="w-4 h-4" />,
-      complete: status?.sections?.ikigai?.complete,
-      detail: status?.sections?.ikigai
-        ? `${status.sections.ikigai.answered}/${status.sections.ikigai.total} círculos`
+      complete: ikigaiStatus?.complete,
+      // TS FIX 2: usar dados calculados dos circles
+      detail: ikigaiAnswered !== undefined && ikigaiTotal !== undefined
+        ? `${ikigaiAnswered}/${ikigaiTotal} círculos`
         : null,
     },
     {
       key: "choices",
       label: "Zona & Hipótese",
       icon: <Target className="w-4 h-4" />,
-      complete: status?.sections?.choices?.complete,
+      // TS FIX 3: choices não está em status.sections — inferir de assessment.choices
+      complete: !!chosenZone,
       detail: chosenZone ?? null,
     },
   ];
@@ -168,8 +169,7 @@ export default function Submitted({ onRestart }: SubmittedProps) {
   }
 
   // Botão desabilitado se: gerando, assessment incompleto, ou health ainda carregando
-  // NÃO desabilitar apenas por pdfServiceOk=false — deixar o usuário tentar
-  // (o generate já tenta warmup antes de falhar)
+  // NÃO desabilitar só por pdfServiceOk=false — gerar já tenta warmup antes de falhar
   const buttonDisabled = pdfGenerating || !status?.allComplete || healthLoading;
 
   return (
@@ -220,8 +220,8 @@ export default function Submitted({ onRestart }: SubmittedProps) {
               Zona escolhida
             </p>
             <p className="text-sm font-bold">{zoneInfo.label}</p>
-            {zoneInfo.description && (
-              <p className="text-xs text-muted-foreground mt-1">{zoneInfo.description}</p>
+            {"description" in zoneInfo && zoneInfo.description && (
+              <p className="text-xs text-muted-foreground mt-1">{String(zoneInfo.description)}</p>
             )}
           </CardContent>
         </Card>

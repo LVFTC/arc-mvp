@@ -15,10 +15,27 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
-    <script
-      defer
-      src="%VITE_ANALYTICS_ENDPOINT%/umami"
-      data-website-id="%VITE_ANALYTICS_WEBSITE_ID%"></script>
+    <!--
+      FIX B3: Umami analytics — carregado apenas se variáveis de ambiente estiverem definidas.
+      Se VITE_ANALYTICS_ENDPOINT ou VITE_ANALYTICS_WEBSITE_ID não estiverem no .env,
+      Vite substitui por string vazia e o script não é adicionado (evita ERR_CONNECTION_RESET).
+    -->
+    <script>
+      (function() {
+        var endpoint = "%VITE_ANALYTICS_ENDPOINT%";
+        var websiteId = "%VITE_ANALYTICS_WEBSITE_ID%";
+        // Só carrega se ambas as variáveis estiverem configuradas e não forem placeholder vazio
+        if (endpoint && endpoint !== "%VITE_ANALYTICS_ENDPOINT%" && websiteId && websiteId !== "%VITE_ANALYTICS_WEBSITE_ID%") {
+          var s = document.createElement("script");
+          s.defer = true;
+          s.src = endpoint + "/script.js";
+          s.setAttribute("data-website-id", websiteId);
+          // Silencioso em caso de erro — não afeta o app
+          s.onerror = function() {};
+          document.head.appendChild(s);
+        }
+      })();
+    </script>
   </body>
 
 </html>
