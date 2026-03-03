@@ -17,11 +17,14 @@ let uvicornProcess: ChildProcess | null = null;
 function spawnUvicorn(): ChildProcess {
   console.log("[pdf-service] Iniciando uvicorn em 127.0.0.1:8001...");
 
+  // Resolve o root do projeto (dois níveis acima de server/_core/)
+  const projectRoot = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
   const proc = spawn(
     "python3",
     ["-m", "uvicorn", "pdf_service.main:app", "--host", "127.0.0.1", "--port", "8001"],
     {
       stdio: ["ignore", "pipe", "pipe"],
+      cwd: projectRoot,
       // Garante que o processo filho seja encerrado quando o Node morrer
       detached: false,
     }
