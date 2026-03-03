@@ -94,3 +94,11 @@
 - [x] pdf_service /health: {"status":"ok"} ✓
 - [x] Node.js /api/trpc/auth.me: respondendo ✓
 - [x] URL interna 127.0.0.1 não exposta na UI (pdfClient sanitiza reason)
+
+## Patches Claude (tutorial pasted_content_2)
+
+- [x] Fix spawn uvicorn: /usr/bin/python3 + cleanEnv (remove PYTHONHOME/PYTHONPATH/VIRTUAL_ENV) + timeout 20s
+- [x] Fix index.html: lang="pt" translate="no" + div root translate="no" + umami condicional
+- [x] Fix LikertQuestion.tsx: radioValue sempre string (evita uncontrolled→controlled warning)
+- [x] Build 0 erros após patches
+- [x] Restart servidor + validar pdf_service startup

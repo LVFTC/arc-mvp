@@ -17,16 +17,26 @@ let uvicornProcess: ChildProcess | null = null;
 function spawnUvicorn(): ChildProcess {
   console.log("[pdf-service] Iniciando uvicorn em 127.0.0.1:8001...");
 
-  // Resolve o root do projeto (dois níveis acima de server/_core/)
   const projectRoot = new URL("../../", import.meta.url).pathname.replace(/\/$/, "");
+
+  // FIX: limpar PYTHONHOME/PYTHONPATH que apontam para o venv Python 3.13
+  // do sandbox Manus — causam AssertionError: SRE module mismatch no 3.11
+  const cleanEnv: Record<string, string> = {};
+  for (const [k, v] of Object.entries(process.env)) {
+    if (v !== undefined) cleanEnv[k] = v;
+  }
+  delete cleanEnv["PYTHONHOME"];
+  delete cleanEnv["PYTHONPATH"];
+  delete cleanEnv["VIRTUAL_ENV"];
+
   const proc = spawn(
-    "python3",
+    "/usr/bin/python3",   // path absoluto — ignora o PATH herdado com venv 3.13
     ["-m", "uvicorn", "pdf_service.main:app", "--host", "127.0.0.1", "--port", "8001"],
     {
       stdio: ["ignore", "pipe", "pipe"],
       cwd: projectRoot,
-      // Garante que o processo filho seja encerrado quando o Node morrer
       detached: false,
+      env: cleanEnv,      // env limpo
     }
   );
 
@@ -64,8 +74,8 @@ async function ensurePdfService(): Promise<void> {
   // Nada rodando — inicia o uvicorn
   uvicornProcess = spawnUvicorn();
 
-  // Aguarda até 15s para o serviço responder
-  const deadline = Date.now() + 15_000;
+  // Aguarda até 20s para o serviço responder
+  const deadline = Date.now() + 20_000;
   while (Date.now() < deadline) {
     await new Promise(r => setTimeout(r, 800));
     const h = await checkPdfServiceHealth();
@@ -77,7 +87,7 @@ async function ensurePdfService(): Promise<void> {
 
   // Timeout — logar aviso mas não crashar o Node
   console.warn(
-    "[pdf-service] Uvicorn não respondeu em 15s. PDF pode falhar — verifique logs acima."
+    "[pdf-service] Uvicorn não respondeu em 20s. PDF pode falhar — verifique logs acima."
   );
 }
 

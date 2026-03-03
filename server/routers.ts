@@ -215,7 +215,7 @@ export const appRouter = router({
         return {
           success: true,
           pdfBase64: pdfBuffer.toString("base64"),
-          filename: \`arc-relatorio-\${ctx.user.id}-\${Date.now()}.pdf\`',
+          filename: `arc-relatorio-${ctx.user.id}-${Date.now()}.pdf`,
         };
       } catch (err) {
         console.error("[report.generate]", err);
