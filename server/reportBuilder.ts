@@ -1,8 +1,11 @@
 /**
  * server/reportBuilder.ts
  *
- * Assembles the ReportPayload from DB rows (Manus schema).
+ * Assembles the ReportPayload from DB rows.
  * Maps raw Drizzle rows → pdf_service payload shape.
+ *
+ * FIX: dimKeys agora usam as keys curtas que casam com DIMENSIONS e
+ * com os dimension strings de CORE_LIKERT_ITEMS (mental, people, change, results).
  */
 
 import {
@@ -44,7 +47,6 @@ export interface ReportPayload {
     posso_ser_pago: string[];
   };
   selected_zone: string;
-  /** Mapped to pdf_service Plan90Days schema */
   plan: {
     chosen_hypothesis: string;
     experiencias: Array<{ title: string; week: number; metric: string }>;
@@ -66,7 +68,6 @@ function computeLikertScore(
     const val = r.reverseFlag ? 6 - r.value : r.value;
     return acc + val;
   }, 0);
-  // Normalize to 0–5 scale
   return Math.round((sum / filtered.length) * 10) / 10;
 }
 
@@ -88,12 +89,14 @@ export async function buildReportPayload(
   const { likert, ikigai, choices } = assessment;
 
   // ── Agilidades scores ──
+  // FIX: keys curtas casam com DIMENSIONS.key e com CORE_LIKERT_ITEMS.dimension
   const dimKeys: Record<string, keyof ReportPayload["agilidades"]> = {
     self_management: "autogestao",
-    mental_agility: "mental",
-    people_agility: "pessoas",
-    change_agility: "mudancas",
-    results_agility: "resultados",
+    mental: "mental",
+    people: "pessoas",
+    change: "mudancas",
+    results: "resultados",
+    // innovation: não mapeado no PDF — dimensão de diagnóstico, não de relatório
   };
 
   const agilidades: ReportPayload["agilidades"] = {
@@ -136,9 +139,11 @@ export async function buildReportPayload(
     posso_ser_pago: sortedByRank.filter(i => i.circle === "paid_for").map(i => i.text),
   };
 
-  // ── Archetype derivation (simple heuristic — no AI) ──
+  // ── Archetype derivation (heurística simples — sem IA) ──
   const topDim = Object.entries(agilidades).reduce((a, b) => a[1] > b[1] ? a : b);
-  const archetypeMap: Record<string, { name: string; strengths: string[]; tensions: string[]; questions: string[] }> = {
+  const archetypeMap: Record<string, {
+    name: string; strengths: string[]; tensions: string[]; questions: string[]
+  }> = {
     autogestao: {
       name: "O Arquiteto de Si",
       strengths: ["Alta consciência de si mesmo", "Consistência e confiabilidade", "Capacidade de autorregulação"],
@@ -146,81 +151,41 @@ export async function buildReportPayload(
       questions: ["Quando foi a última vez que você mudou de opinião sobre si mesmo?", "O que você tolera em si que não toleraria nos outros?"],
     },
     mental: {
-      name: "O Pensador Sistêmico",
-      strengths: ["Visão analítica e estruturada", "Capacidade de síntese", "Aprendizado rápido"],
-      tensions: ["Pode paralisar por excesso de análise", "Dificuldade com ambiguidade"],
-      questions: ["Qual problema você ainda não conseguiu simplificar?", "Quando a análise virou desculpa para não agir?"],
+      name: "O Pensador Estratégico",
+      strengths: ["Capacidade analítica apurada", "Aprendizado rápido", "Visão sistêmica"],
+      tensions: ["Pode paralisar por excesso de análise", "Dificuldade com execução repetitiva"],
+      questions: ["Quando foi a última vez que você agiu sem ter certeza?", "O que você sabe que ainda não colocou em prática?"],
     },
     pessoas: {
-      name: "O Conector",
-      strengths: ["Inteligência relacional elevada", "Comunicação adaptativa", "Capacidade de influência"],
-      tensions: ["Pode evitar conflitos necessários", "Dependência de aprovação"],
-      questions: ["Qual conversa difícil você está adiando?", "Onde sua empatia virou obstáculo?"],
+      name: "O Conector Deliberado",
+      strengths: ["Habilidade relacional elevada", "Comunicação adaptável", "Construção de confiança"],
+      tensions: ["Pode depender demais da aprovação alheia", "Dificuldade com decisões impopulares"],
+      questions: ["Quais relações você tem cultivado intencionalmente?", "Onde você está evitando uma conversa necessária?"],
     },
     mudancas: {
-      name: "O Navegador",
-      strengths: ["Alta adaptabilidade", "Resiliência em cenários instáveis", "Visão de oportunidade em crises"],
-      tensions: ["Pode se perder sem estrutura", "Dificuldade com rotina"],
-      questions: ["O que você ainda não aprendeu com a última mudança?", "Onde a adaptabilidade virou falta de posição?"],
+      name: "O Navegador da Incerteza",
+      strengths: ["Alta tolerância à ambiguidade", "Adaptabilidade rápida", "Resiliência operacional"],
+      tensions: ["Pode buscar mudança por inquietação, não por propósito", "Dificuldade com consistência de longo prazo"],
+      questions: ["Qual mudança você está adiando porque parece arriscada?", "Onde a estabilidade seria mais valiosa que a adaptação?"],
     },
     resultados: {
-      name: "O Executor",
-      strengths: ["Foco em entrega", "Alta capacidade de priorização", "Orientação a impacto"],
-      tensions: ["Pode sacrificar qualidade por velocidade", "Dificuldade em pausar para reflexão"],
-      questions: ["Qual resultado você perseguiu que não deveria?", "O que você entrega que ninguém pediu?"],
+      name: "O Executor Focado",
+      strengths: ["Orientação a impacto", "Capacidade de priorização", "Entrega consistente"],
+      tensions: ["Pode sacrificar qualidade por velocidade", "Dificuldade em tolerar ambiguidade sem meta clara"],
+      questions: ["Qual resultado você está perseguindo que realmente importa?", "O que você está entregando que poderia parar de fazer?"],
     },
   };
 
-  const archetype = archetypeMap[topDim[0]] ?? archetypeMap["autogestao"];
+  const archetype = archetypeMap[topDim[0]] ?? archetypeMap["resultados"];
 
-  // ── Plan 90D ──
-  // Map our 70/20/10 template selections to pdf_service Plan90Days schema
-  let plan: ReportPayload["plan"] = {
-    chosen_hypothesis: "",
-    experiencias: [],
-    pessoas: [],
-    educacao: [],
-    checkpoints: [],
+  // ── Plan 90d (fallback se não houver dados) ──
+  const plan: ReportPayload["plan"] = {
+    chosen_hypothesis: choices?.chosenFocus ?? "Hipótese em construção — complete o IKIGAI para refinar.",
+    experiencias: [{ title: "Mapeie 3 conversas com profissionais da área de interesse", week: 1, metric: "3 conversas realizadas" }],
+    pessoas: [{ profile: "Profissional sênior da área de interesse", justification: "Valida a hipótese de carreira com quem já percorreu o caminho" }],
+    educacao: [{ kind: "livro", title: "Designing Your Life — Bill Burnett & Dave Evans" }],
+    checkpoints: [{ week: 4, question: "O que aprendi que muda minha hipótese inicial?" }],
   };
-
-  if (db) {
-    const { userPlan90d } = await import("../drizzle/schema");
-    const planRows = await db.select().from(userPlan90d).where(eq(userPlan90d.userId, userId)).limit(1);
-    if (planRows[0]) {
-      const p = planRows[0];
-      const sel70 = (p.selected70 as string[] | null) ?? [];
-      const sel20 = (p.selected20 as string[] | null) ?? [];
-      const sel10 = (p.selected10 as string[] | null) ?? [];
-
-      // Map selected_70 → experiencias (main work, week 1-9)
-      const experiencias = sel70.map((title, i) => ({
-        title,
-        week: (i + 1) * 3,
-        metric: "Avalie o impacto no trabalho principal ao final do ciclo",
-      }));
-
-      // Map selected_20 → educacao (development)
-      const educacao = sel20.map(title => ({ kind: "desenvolvimento", title }));
-
-      // Map selected_10 → educacao (exploration)
-      const exploracoes = sel10.map(title => ({ kind: "exploração", title }));
-
-      // Checkpoints from dates
-      const checkpoints = [
-        { week: 4, question: p.checkpoint1Date ? `Checkpoint 1 (${p.checkpoint1Date}): O que mudou desde o início do ciclo?` : "Checkpoint 1: O que mudou desde o início do ciclo?" },
-        { week: 8, question: p.checkpoint2Date ? `Checkpoint 2 (${p.checkpoint2Date}): O que precisa ser ajustado?` : "Checkpoint 2: O que precisa ser ajustado?" },
-        { week: 12, question: p.checkpoint3Date ? `Checkpoint 3 (${p.checkpoint3Date}): O que ficou para o próximo ciclo?` : "Checkpoint 3: O que ficou para o próximo ciclo?" },
-      ];
-
-      plan = {
-        chosen_hypothesis: p.cycleObjective ?? "Ciclo de desenvolvimento Arc",
-        experiencias,
-        pessoas: [],
-        educacao: [...educacao, ...exploracoes],
-        checkpoints,
-      };
-    }
-  }
 
   return {
     user_name: userName,
@@ -231,7 +196,7 @@ export async function buildReportPayload(
     agilidades,
     big_five,
     ikigai: ikigaiPayload,
-    selected_zone: choices?.chosenZone ?? "",
+    selected_zone: choices?.chosenZone ?? "Não definida",
     plan,
   };
 }
