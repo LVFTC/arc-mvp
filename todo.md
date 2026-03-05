@@ -102,3 +102,11 @@
 - [x] Fix LikertQuestion.tsx: radioValue sempre string (evita uncontrolled→controlled warning)
 - [x] Build 0 erros após patches
 - [x] Restart servidor + validar pdf_service startup
+
+## Fix dimensões questionBank (2026-03-04)
+
+- [x] Renomear mental_agility→mental, people_agility→people, change_agility→change, results_agility→results
+- [x] Adicionar 8 itens Likert de innovation (ia_1..ia_8)
+- [x] Adicionar 2 evidence prompts de innovation (ia_ev1, ia_ev2)
+- [x] Resolver conflito de merge (arquivo duplicado no upstream do Claude)
+- [x] Build 0 erros, tsc 0 erros, 25 testes passando
