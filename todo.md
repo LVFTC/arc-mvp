@@ -110,3 +110,11 @@
 - [x] Adicionar 2 evidence prompts de innovation (ia_ev1, ia_ev2)
 - [x] Resolver conflito de merge (arquivo duplicado no upstream do Claude)
 - [x] Build 0 erros, tsc 0 erros, 25 testes passando
+
+## Fix PDF em produção — prestart Python (2026-03-12)
+
+- [x] Criar scripts/setup-python.sh: instala deps Python via python3 -m pip --user antes do start
+- [x] Adicionar prestart no package.json: "prestart": "bash scripts/setup-python.sh"
+- [x] Script testado localmente: sem warnings, sem erros
+- [x] Build 0 erros, tsc 0 erros, 25 testes passando
+- [ ] Publicar checkpoint e confirmar PDF funcionando em produção
