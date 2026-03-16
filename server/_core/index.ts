@@ -56,7 +56,7 @@ function spawnUvicorn(): ChildProcess {
   return proc;
 }
 
-async function ensurePdfService(): Promise<void> {
+export async function ensurePdfService(): Promise<void> {
   if (uvicornProc && !uvicornProc.killed) return;
   const h = await checkPdfServiceHealth();
   if (h.ok) { console.log("[pdf_service] Já disponível ✓"); return; }

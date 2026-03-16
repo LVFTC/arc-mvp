@@ -117,4 +117,4 @@
 - [x] Adicionar prestart no package.json: "prestart": "bash scripts/setup-python.sh"
 - [x] Script testado localmente: sem warnings, sem erros
 - [x] Build 0 erros, tsc 0 erros, 25 testes passando
-- [ ] Publicar checkpoint e confirmar PDF funcionando em produção
+- [x] Publicar checkpoint e confirmar PDF funcionando em produção

@@ -23,6 +23,7 @@ import {
 } from "./db";
 import { buildReportPayload } from "./reportBuilder";
 import { callPdfService, checkPdfServiceHealth, PdfServiceOfflineError, PdfServiceTimeoutError, PdfRenderError } from "./pdfClient";
+import { ensurePdfService } from "./_core/index";
 
 
 export const appRouter = router({
@@ -183,7 +184,8 @@ export const appRouter = router({
       // Verificar saúde; se falhar, tentar uma vez mais após 2s (warmup)
       let health = await checkPdfServiceHealth();
       if (!health.ok) {
-        await new Promise(r => setTimeout(r, 2000));
+        ensurePdfService().catch(() => {});
+        await new Promise(r => setTimeout(r, 4000));
         health = await checkPdfServiceHealth();
       }
       if (!health.ok) {
