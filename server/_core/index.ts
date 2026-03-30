@@ -2,6 +2,8 @@ import "dotenv/config";
 import express, { type Request, type Response } from "express";
 import { createServer } from "http";
 import net from "net";
+import path from "path";
+import { fileURLToPath } from "url";
 import { spawn, type ChildProcess } from "child_process";
 import { createExpressMiddleware } from "@trpc/server/adapters/express";
 import { registerOAuthRoutes } from "./oauth";
@@ -39,11 +41,22 @@ function spawnUvicorn(): ChildProcess {
   delete cleanEnv["PYTHONPATH"];
   delete cleanEnv["VIRTUAL_ENV"];
 
+  // cwd: raiz do projeto (onde pdf_service/ existe).
+  // Em produção, dist/index.js está em <root>/dist/, então subimos um nível.
+  // Em dev, tsx executa a partir de <root>/server/_core/, subimos dois níveis.
+  const __filename = fileURLToPath(import.meta.url);
+  const __dirname = path.dirname(__filename);
+  // Detectar se estamos rodando o bundle compilado (dist/) ou o fonte (server/_core/)
+  const projectRoot = __dirname.endsWith("dist")
+    ? path.resolve(__dirname, "..")
+    : path.resolve(__dirname, "..", "..");
+
   const proc = spawn(
     "/usr/bin/python3",
     ["-m", "uvicorn", "pdf_service.main:app", "--host", "127.0.0.1", "--port", "8001"],
-    { stdio: ["ignore", "pipe", "pipe"], detached: false, env: cleanEnv }
+    { stdio: ["ignore", "pipe", "pipe"], detached: false, env: cleanEnv, cwd: projectRoot }
   );
+  console.log(`[pdf_service] cwd: ${projectRoot}`);
   proc.stdout?.on("data", (d: Buffer) => process.stdout.write(`[uvicorn] ${d}`));
   proc.stderr?.on("data", (d: Buffer) => process.stderr.write(`[uvicorn] ${d}`));
   proc.on("exit", (code) => {

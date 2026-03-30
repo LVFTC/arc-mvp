@@ -125,4 +125,4 @@
 - [x] Fix: pydyf==0.10.0 adicionado ao pdf_service/requirements.txt
 - [x] Validado: POST /render retorna HTTP 200 | 59664 bytes | 0.85s
 - [x] Build 0 erros, tsc 0 erros, 25 testes passando
-- [ ] Publicar e confirmar em produção
+- [x] Publicar e confirmar em produção
