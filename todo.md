@@ -118,3 +118,11 @@
 - [x] Script testado localmente: sem warnings, sem erros
 - [x] Build 0 erros, tsc 0 erros, 25 testes passando
 - [x] Publicar checkpoint e confirmar PDF funcionando em produção
+
+## Fix causa raiz PDF — pydyf incompatível (2026-03-30)
+
+- [x] Diagnosticar: pydyf 0.11.0 quebrou a assinatura PDF.__init__() — incompatível com weasyprint 61.2
+- [x] Fix: pydyf==0.10.0 adicionado ao pdf_service/requirements.txt
+- [x] Validado: POST /render retorna HTTP 200 | 59664 bytes | 0.85s
+- [x] Build 0 erros, tsc 0 erros, 25 testes passando
+- [ ] Publicar e confirmar em produção
